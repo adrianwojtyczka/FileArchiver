@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Serilog" Version="2.8.0" />
+    <PackageReference Include="System.Configuration.ConfigurationManager" Version="4.5.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\FileArchiver.Generic\FileArchiver.Generic.csproj" />
+    <ProjectReference Include="..\..\FileArchiver.Storage\FileArchiver.Storage.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="FileArchiver.DiskStorage.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="IF NOT ($(ConfigurationName)) == (Debug) GOTO END&#xD;&#xA;cd $(ProjectDir)&#xD;&#xA;copy /y bin\Debug\netstandard2.0\FileArchiver.DiskStorage.dll ..\..\FileArchiver\bin\Debug\netcoreapp2.1\Plugins&#xD;&#xA;copy /y bin\Debug\netstandard2.0\FileArchiver.DiskStorage.pdb ..\..\FileArchiver\bin\Debug\netcoreapp2.1\Plugins&#xD;&#xA;copy /y bin\Debug\netstandard2.0\FileArchiver.DiskStorage.json ..\..\FileArchiver\bin\Debug\netcoreapp2.1\Plugins&#xD;&#xA;:END" />
+  </Target>
+
+</Project>

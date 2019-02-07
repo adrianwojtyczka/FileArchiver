@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Serilog" Version="2.8.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\FileArchiver.Archive\FileArchiver.Archive.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="FileArchiver.ZipArchive.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="IF NOT ($(ConfigurationName)) == (Debug) GOTO END&#xD;&#xA;cd $(ProjectDir)&#xD;&#xA;copy /y bin\Debug\netstandard2.0\FileArchiver.ZipArchive.dll ..\..\FileArchiver\bin\Debug\netcoreapp2.1\Plugins&#xD;&#xA;copy /y bin\Debug\netstandard2.0\FileArchiver.ZipArchive.pdb ..\..\FileArchiver\bin\Debug\netcoreapp2.1\Plugins&#xD;&#xA;copy /y bin\Debug\netstandard2.0\FileArchiver.ZipArchive.json ..\..\FileArchiver\bin\Debug\netcoreapp2.1\Plugins&#xD;&#xA;:END" />
+  </Target>
+
+</Project>

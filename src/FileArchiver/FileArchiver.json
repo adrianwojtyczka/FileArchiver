@@ -1,0 +1,42 @@
+{
+  "Serilog": {
+    "WriteTo": [
+      {
+        "Name": "RollingFile",
+        "Args": {
+          "pathFormat": "file-archiver_log-{Date}.txt"
+        }
+      },
+      {
+        "Name": "Console"
+      }
+    ]
+  },
+  "FileArchiver": {
+    "PluginsFolder": "Plugins",
+    "ArchiveSettings": [
+      {
+        "Path": "C:\\temp\\XML",
+        "FilePattern": "*.xml",
+        "Strategy": "Monthly",
+        "FirstDayOfWeek": "Monday",
+        "Archive": {
+          "Name": "Zip",
+          "Compression": "Optimal"
+        },
+        "Storage": {
+          "Name": "Disk",
+          "FileName": "C:\\temp\\XML\\{Date:yyyyMMdd}_xml.zip",
+          "DateParameters": [
+            {
+              "Month": "previous",
+              "Day": "last",
+              "FirstDayOfWeek": "Monday"
+            }
+          ]
+        },
+        "DeleteArchivedFiles": false
+      }
+    ]
+  }
+}

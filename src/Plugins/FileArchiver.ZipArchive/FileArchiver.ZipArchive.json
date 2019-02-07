@@ -1,0 +1,10 @@
+{
+  "Plugins": [
+    {
+      "Type": "Archive",
+      "Name": "Zip",
+      "AssemblyName": "FileArchiver.ZipArchive.dll",
+      "ClassName": "FileArchiver.ZipArchive"
+    }
+  ]
+}
