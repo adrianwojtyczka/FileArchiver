@@ -16,24 +16,15 @@
     "PluginsFolder": "Plugins",
     "ArchiveSettings": [
       {
-        "Path": "C:\\temp\\XML",
-        "FilePattern": "*.xml",
-        "Strategy": "Monthly",
-        "FirstDayOfWeek": "Monday",
+        "Path": "",
+        "FilePattern": "",
+        "Strategy": "",
+        "FirstDayOfWeek": "",
         "Archive": {
-          "Name": "Zip",
-          "Compression": "Optimal"
+          "Name": ""
         },
         "Storage": {
-          "Name": "Disk",
-          "FileName": "C:\\temp\\XML\\{Date:yyyyMMdd}_xml.zip",
-          "DateParameters": [
-            {
-              "Month": "previous",
-              "Day": "last",
-              "FirstDayOfWeek": "Monday"
-            }
-          ]
+          "Name": ""
         },
         "DeleteArchivedFiles": false
       }

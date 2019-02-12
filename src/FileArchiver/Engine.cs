@@ -65,39 +65,23 @@ namespace FileArchiver
                     _logger.Debug("Searching files to archive...");
                     var fileNames = GetFilesToArchive(archiveSettings);
 
+                    // If at least 1 file was found...
+                    if (!fileNames.Any())
+                        continue;
+
+
                     // Archive files
-                    _logger.Information($"Archiving files using '{archiveSettings.Archive.Name}' archive plugin.");
-                    var archive = _pluginFactory.GetArchive(archiveSettings.Archive.Name, archiveSection.GetSection("Archive"));
-                    var stream = archive.Archive(fileNames);
+                    var archiveStream = ArchiveFiles(archiveSettings.Archive.Name, archiveSection.GetSection("Archive"), fileNames);
 
-                    // Set the pointer at beginning of the stream
-                    if (stream.CanSeek)
-                        stream.Seek(0, SeekOrigin.Begin);
+                    // Store archive
+                    StoreArchive(archiveSettings.Storage.Name, archiveSection.GetSection("Storage"), archiveStream);
 
-                    // Store files
-                    _logger.Information($"Storing archive using '{archiveSettings.Storage.Name}' storage plugin.");
-                    var storage = _pluginFactory.GetStorage(archiveSettings.Storage.Name, archiveSection.GetSection("Storage"));
-                    storage.Store(stream);
 
                     // Delete files, if needed
                     if (archiveSettings.DeleteArchivedFiles)
-                    {
-                        _logger.Information("Deleting archived files.");
-                        foreach (var fileName in fileNames)
-                        {
-                            _logger.Debug($"Deleting file {fileName}");
-                            try
-                            {
-                                File.Delete(fileName);
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.Warning($"Unable to delete file {fileName}: {ex.Message}");
-                            }
-                        }
-                    }
+                        DeleteArchivedFiles(fileNames);
                 }
-                catch(Exception ex)
+                catch (Exception ex)
                 {
                     _logger.Error(ex, ex.Message);
                 }
@@ -108,7 +92,7 @@ namespace FileArchiver
 
         private void CheckSettings(ArchiveSettings settings)
         {
-            if (string.IsNullOrEmpty(settings.Path))
+            if (string.IsNullOrWhiteSpace(settings.Path))
                 throw new ConfigurationErrorsException("Path to archive is empty.");
 
             if (!Directory.Exists(settings.Path))
@@ -117,13 +101,13 @@ namespace FileArchiver
             if (settings.Archive == null)
                 throw new ConfigurationErrorsException("Archive configuration is not specified.");
 
-            if (string.IsNullOrEmpty(settings.Archive.Name))
+            if (string.IsNullOrWhiteSpace(settings.Archive.Name))
                 throw new ConfigurationErrorsException("Archive plugin name is not specified.");
 
             if (settings.Storage == null)
                 throw new ConfigurationErrorsException("Storage configuration is not specified.");
 
-            if (string.IsNullOrEmpty(settings.Storage.Name))
+            if (string.IsNullOrWhiteSpace(settings.Storage.Name))
                 throw new ConfigurationErrorsException("Storage plugin name is not specified.");
 
             if (settings.Strategy == ArchiveStrategy.Unknown)
@@ -136,7 +120,7 @@ namespace FileArchiver
             var fileNames = Directory.EnumerateFiles(archiveGroupSettings.Path, archiveGroupSettings.FilePattern ?? string.Empty);
 
             // Filter files with RegEx expression
-            if (!string.IsNullOrEmpty(archiveGroupSettings.FileRegExPattern))
+            if (!string.IsNullOrWhiteSpace(archiveGroupSettings.FileRegExPattern))
             {
                 var fileNameRegEx = new Regex(archiveGroupSettings.FileRegExPattern, RegexOptions.Compiled);
                 fileNames = fileNames.Where(fileName => fileNameRegEx.IsMatch(fileName));
@@ -147,10 +131,75 @@ namespace FileArchiver
             fileNames = fileNames.Where(fileName => new FileInfo(fileName).CreationTime <= getMaxFileDate);
 
             // Add log
-            _logger.Information($"Found {fileNames.Count()} files to archive");
+            _logger.Information($"Found {fileNames.Count()} files to archive.");
 
             // Return files list to store
             return fileNames;
+        }
+
+        /// <summary>
+        /// Archive files using plugin
+        /// </summary>
+        /// <param name="archivePluginName">Archive plugin name to use</param>
+        /// <param name="archiveSection">Archive settings section</param>
+        /// <param name="fileNames">File names to archive</param>
+        /// <returns>Returns archive stream</returns>
+        private Stream ArchiveFiles(string archivePluginName, IConfiguration archiveSection, System.Collections.Generic.IEnumerable<string> fileNames)
+        {
+            _logger.Information($"Archiving files using '{archivePluginName}' archive plugin...");
+
+            // Archive files
+            var archivePlugin = _pluginFactory.GetArchive(archivePluginName, archiveSection);
+            var archiveStream = archivePlugin.Archive(fileNames);
+
+            // Check if stream was created
+            if (archiveStream == null)
+                throw new NullReferenceException("Archive stream cannot be null.");
+
+            // Set the pointer at beginning of the stream
+            if (archiveStream.CanSeek)
+                archiveStream.Seek(0, SeekOrigin.Begin);
+
+            // Return archive stream
+            return archiveStream;
+        }
+
+        /// <summary>
+        /// Store archive
+        /// </summary>
+        /// <param name="storagePluginName">Storage plugin name to use</param>
+        /// <param name="storeSection">Store settings section</param>
+        /// <param name="archiveStream">Archive stream to store</param>
+        private void StoreArchive(string storagePluginName, IConfiguration storeSection, Stream archiveStream)
+        {
+            _logger.Information($"Storing archive using '{storagePluginName}' storage plugin...");
+
+            // Store archive stream
+            var storage = _pluginFactory.GetStorage(storagePluginName, storeSection);
+            storage.Store(archiveStream);
+        }
+
+        /// <summary>
+        /// Delete archived files
+        /// </summary>
+        /// <param name="filesToDelete">File names to delete</param>
+        private void DeleteArchivedFiles(System.Collections.Generic.IEnumerable<string> filesToDelete)
+        {
+            _logger.Information("Deleting archived files...");
+
+            foreach (var fileName in filesToDelete)
+            {
+                _logger.Debug($"Deleting file {fileName}.");
+
+                try
+                {
+                    File.Delete(fileName);
+                }
+                catch (Exception ex)
+                {
+                    _logger.Warning(ex, $"Unable to delete file {fileName}: {ex.Message}");
+                }
+            }
         }
 
         private DateTime GetMaxFileDate(ArchiveStrategy archiveStrategy, DayOfWeek firstDayOfWeek)
@@ -158,7 +207,7 @@ namespace FileArchiver
             DateTime dateTime;
             DateTime today = DateTime.Today;
 
-            _logger.Debug($"Calculating date using {archiveStrategy} strategy.");
+            _logger.Debug($"Calculating date using {archiveStrategy} strategy...");
 
             switch (archiveStrategy)
             {
@@ -187,9 +236,9 @@ namespace FileArchiver
             }
             
             // Set the end of the calculated day
-            dateTime = new DateTime(dateTime.Year, dateTime.Month, dateTime.Day, 23, 59, 59);
+            dateTime = new DateTime(dateTime.Year, dateTime.Month, dateTime.Day, 23, 59, 59, 999);
 
-            _logger.Debug($"Date calculated: {dateTime.ToString(System.Threading.Thread.CurrentThread.CurrentUICulture.DateTimeFormat)}");
+            _logger.Debug($"Date calculated: {dateTime.ToString(System.Threading.Thread.CurrentThread.CurrentUICulture.DateTimeFormat)}.");
 
             // Return calculated date
             return dateTime;

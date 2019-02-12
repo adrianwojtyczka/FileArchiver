@@ -2,7 +2,7 @@
   "Plugins": [
     {
       "Type": "Storage",
-      "Name": "Disk",
+      "Name": "FileArchiver.DiskStorage",
       "AssemblyName": "FileArchiver.DiskStorage.dll",
       "ClassName": "FileArchiver.DiskStorage"
     }

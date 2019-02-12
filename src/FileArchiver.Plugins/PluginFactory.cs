@@ -185,7 +185,7 @@ namespace FileArchiver.Plugins
         /// <returns>Returns plugin assembly, if exists.</returns>
         private Assembly PluginFactory_AssemblyResolve(object sender, ResolveEventArgs args)
         {
-            if (string.IsNullOrEmpty(_pluginsConfiguration.PluginsFolder))
+            if (string.IsNullOrWhiteSpace(_pluginsConfiguration.PluginsFolder))
                 return null;
 
             var assemblyFullPathName = Path.Combine(_pluginsConfiguration.PluginsFolder, new AssemblyName(args.Name).Name);

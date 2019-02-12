@@ -27,7 +27,7 @@ namespace FileArchiver.Plugins
         public PluginsConfiguration(string baseFolder, string pluginsFolder, ILogger logger)
         {
             BaseFolder = baseFolder;
-            PluginsFolder = !string.IsNullOrEmpty(pluginsFolder) ? Path.GetFullPath(pluginsFolder) : null;
+            PluginsFolder = !string.IsNullOrWhiteSpace(pluginsFolder) ? Path.GetFullPath(pluginsFolder) : null;
             _logger = logger;
 
             _pluginsSettings = LoadPluginsSettingsFromConfigFiles();
@@ -71,7 +71,7 @@ namespace FileArchiver.Plugins
 
             // Add all paths in which search for plugins
             var searchFolders = new List<string> { BaseFolder };
-            if (!string.IsNullOrEmpty(PluginsFolder))
+            if (!string.IsNullOrWhiteSpace(PluginsFolder))
                 searchFolders.Add(PluginsFolder);
 
             // For each path to search...
@@ -133,9 +133,9 @@ namespace FileArchiver.Plugins
         private bool IsPluginSettingsValid(PluginSettings pluginSettings)
         {
             return pluginSettings.Type != PluginType.Unknown &&
-                !string.IsNullOrEmpty(pluginSettings.Name) &&
-                !string.IsNullOrEmpty(pluginSettings.AssemblyName) &&
-                !string.IsNullOrEmpty(pluginSettings.ClassName);
+                !string.IsNullOrWhiteSpace(pluginSettings.Name) &&
+                !string.IsNullOrWhiteSpace(pluginSettings.AssemblyName) &&
+                !string.IsNullOrWhiteSpace(pluginSettings.ClassName);
         }
 
         /// <summary>

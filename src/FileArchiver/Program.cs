@@ -1,9 +1,7 @@
 ﻿using FileArchiver.Settings;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 using System;
-using System.Text.RegularExpressions;
 
 namespace FileArchiver
 {
@@ -16,7 +14,10 @@ namespace FileArchiver
         {
             // Load configuration
             var config = new ConfigurationBuilder()
-                .AddJsonFile("FileArchiver.json")
+                .AddJsonFile("FileArchiver.json", false)
+#if DEBUG
+                .AddJsonFile("FileArchiver.Development.json", true)
+#endif
                 .Build();
             
             // Get and bind FileArchiver config section

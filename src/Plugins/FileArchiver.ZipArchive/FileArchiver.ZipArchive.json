@@ -2,7 +2,7 @@
   "Plugins": [
     {
       "Type": "Archive",
-      "Name": "Zip",
+      "Name": "FileArchiver.ZipArchive",
       "AssemblyName": "FileArchiver.ZipArchive.dll",
       "ClassName": "FileArchiver.ZipArchive"
     }

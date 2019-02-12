@@ -5,12 +5,17 @@ using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.IO;
-using System.Text.RegularExpressions;
 
 namespace FileArchiver
 {
     public class DiskStorage : IStorage
     {
+        #region Constants
+
+        private const string DefaultTimestampFormat = "yyyyMMddHHmmss";
+
+        #endregion
+
         #region Private members
 
         /// <summary>
@@ -69,7 +74,7 @@ namespace FileArchiver
         private void CheckSettings()
         {
             // Check if the file name is not empty
-            if (string.IsNullOrEmpty(_settings.FileName))
+            if (string.IsNullOrWhiteSpace(_settings.FileName))
                 throw new ConfigurationErrorsException($"The setting {nameof(_settings.FileName)} is not defined.");
         }
 
@@ -115,24 +120,9 @@ namespace FileArchiver
         {
             int dateParametersCount = 0;
 
-            // Get all defined parameters
-            const string placeholderRegexPattern = "({[a-zA-Z0-9]+(:[^}]*)?})";
-            var matches = Regex.Matches(fileName, placeholderRegexPattern);
-
-            // For each parameter found...
-            foreach (Match parameter in matches)
+            // Get formatted value for the current placeholder
+            return Utils.EvaluateString(fileName, (placeholder, name, format) =>
             {
-                // Split the placeholder
-                var nameFormat = parameter.Value
-                    .Trim('{', '}')
-                    .Split(':');
-
-                // Retrieve the name and format
-                string name = nameFormat[0].Trim();
-                string format = nameFormat.Length >= 2 ? nameFormat[1].Trim() : null;
-
-                // Get formatted value for the current placeholder
-                string value;
                 switch (name.ToLower())
                 {
                     case "date":
@@ -142,25 +132,16 @@ namespace FileArchiver
                             dateTime = Utils.CalculateDateTime(dateTime, _settings.DateParameters[dateParametersCount]);
                             dateParametersCount++;
                         }
-                        
-                        value = dateTime.ToString(format);
-                        break;
+
+                        return dateTime.ToString(format);
 
                     case "timestamp":
-                        value = DateTime.Now.ToString(format);
-                        break;
+                        return DateTime.Now.ToString(format ?? DefaultTimestampFormat);
 
                     default:
-                        value = string.Empty;
-                        break;
+                        return string.Empty;
                 }
-
-                // Replace placeholder
-                fileName = fileName.Replace(parameter.Value, value);
-            }
-
-            // Return parsed file name
-            return fileName;
+            });
         }
 
         #endregion
