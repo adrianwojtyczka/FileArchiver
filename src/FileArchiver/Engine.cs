@@ -4,6 +4,7 @@ using FileArchiver.Settings;
 using Microsoft.Extensions.Configuration;
 using Serilog;
 using System;
+using System.Collections.Generic;
 using System.Configuration;
 using System.IO;
 using System.Linq;
@@ -33,10 +34,9 @@ namespace FileArchiver
         /// <param name="firstDayOfWeek">First day of week</param>
         public Engine(IConfiguration configuration, ILogger logger)
         {
+            _pluginFactory = new PluginFactory(logger);
             _configuration = configuration;
             _logger = logger;
-
-            _pluginFactory = new PluginFactory(logger);
         }
 
         #endregion
@@ -57,25 +57,18 @@ namespace FileArchiver
                     archiveSection.Bind(archiveSettings);
 
                     // Check settings
-                    _logger.Debug("Checking configuration...");
                     CheckSettings(archiveSettings);
 
 
                     // Get files to archive
-                    _logger.Debug("Searching files to archive...");
                     var fileNames = GetFilesToArchive(archiveSettings);
-
-                    // If at least 1 file was found...
                     if (!fileNames.Any())
                         continue;
 
 
-                    // Archive files
+                    // Archive and store files
                     var archiveStream = ArchiveFiles(archiveSettings.Archive.Name, archiveSection.GetSection("Archive"), fileNames);
-
-                    // Store archive
                     StoreArchive(archiveSettings.Storage.Name, archiveSection.GetSection("Storage"), archiveStream);
-
 
                     // Delete files, if needed
                     if (archiveSettings.DeleteArchivedFiles)
@@ -90,8 +83,14 @@ namespace FileArchiver
             _logger.Information("End archiving files.");
         }
 
+        /// <summary>
+        /// Check settings
+        /// </summary>
+        /// <param name="settings">Settings to check</param>
         private void CheckSettings(ArchiveSettings settings)
         {
+            _logger.Debug("Checking configuration...");
+
             if (string.IsNullOrWhiteSpace(settings.Path))
                 throw new ConfigurationErrorsException("Path to archive is empty.");
 
@@ -114,20 +113,27 @@ namespace FileArchiver
                 throw new ConfigurationErrorsException("Strategy is not specified.");
         }
 
-        private System.Collections.Generic.IEnumerable<string> GetFilesToArchive(ArchiveSettings archiveGroupSettings)
+        /// <summary>
+        /// Get files to archive
+        /// </summary>
+        /// <param name="settings">Settings</param>
+        /// <returns>Returns collection of files to archive</returns>
+        private IEnumerable<string> GetFilesToArchive(ArchiveSettings settings)
         {
+            _logger.Debug("Searching files to archive...");
+
             // Get all files in provided directory
-            var fileNames = Directory.EnumerateFiles(archiveGroupSettings.Path, archiveGroupSettings.FilePattern ?? string.Empty);
+            var fileNames = Directory.EnumerateFiles(settings.Path, settings.FilePattern ?? string.Empty);
 
             // Filter files with RegEx expression
-            if (!string.IsNullOrWhiteSpace(archiveGroupSettings.FileRegExPattern))
+            if (!string.IsNullOrWhiteSpace(settings.FileRegExPattern))
             {
-                var fileNameRegEx = new Regex(archiveGroupSettings.FileRegExPattern, RegexOptions.Compiled);
+                var fileNameRegEx = new Regex(settings.FileRegExPattern, RegexOptions.Compiled);
                 fileNames = fileNames.Where(fileName => fileNameRegEx.IsMatch(fileName));
             }
 
             // Filter files by creation date
-            var getMaxFileDate = GetMaxFileDate(archiveGroupSettings.Strategy, archiveGroupSettings.FirstDayOfWeek);
+            var getMaxFileDate = GetMaxFileDate(settings.Strategy, settings.FirstDayOfWeek);
             fileNames = fileNames.Where(fileName => new FileInfo(fileName).CreationTime <= getMaxFileDate);
 
             // Add log
@@ -144,7 +150,7 @@ namespace FileArchiver
         /// <param name="archiveSection">Archive settings section</param>
         /// <param name="fileNames">File names to archive</param>
         /// <returns>Returns archive stream</returns>
-        private Stream ArchiveFiles(string archivePluginName, IConfiguration archiveSection, System.Collections.Generic.IEnumerable<string> fileNames)
+        private Stream ArchiveFiles(string archivePluginName, IConfiguration archiveSection, IEnumerable<string> fileNames)
         {
             _logger.Information($"Archiving files using '{archivePluginName}' archive plugin...");
 
@@ -183,10 +189,11 @@ namespace FileArchiver
         /// Delete archived files
         /// </summary>
         /// <param name="filesToDelete">File names to delete</param>
-        private void DeleteArchivedFiles(System.Collections.Generic.IEnumerable<string> filesToDelete)
+        private void DeleteArchivedFiles(IEnumerable<string> filesToDelete)
         {
             _logger.Information("Deleting archived files...");
 
+            // Delete each archived file
             foreach (var fileName in filesToDelete)
             {
                 _logger.Debug($"Deleting file {fileName}.");

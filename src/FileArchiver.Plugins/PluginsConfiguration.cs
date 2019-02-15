@@ -1,14 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel.Composition;
-using System.ComponentModel.Composition.Hosting;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using FileArchiver.Archive;
 using FileArchiver.Plugin;
 using FileArchiver.Storage;
-using Microsoft.Extensions.Configuration;
 using Serilog;
 
 namespace FileArchiver.Plugins
@@ -23,11 +20,18 @@ namespace FileArchiver.Plugins
 
         #region Private members
 
-        private readonly Dictionary<Type, Dictionary<string, PluginSettings>> _pluginsSettings;
-
-        private readonly List<Type> _pluginTypeInterfaces;
+        private Dictionary<Type, Dictionary<string, PluginSettings>> _pluginsSettings;
 
         private readonly ILogger _logger;
+
+        /// <summary>
+        /// Plugin interfaces
+        /// </summary>
+        private readonly List<Type> _pluginTypeInterfaces = new List<Type>
+        {
+            typeof(IArchive),
+            typeof(IStorage)
+        };
 
         #endregion
 
@@ -39,16 +43,31 @@ namespace FileArchiver.Plugins
         /// <param name="logger">Logger</param>
         public PluginsConfiguration(ILogger logger)
         {
+            _pluginsSettings = null;
             _logger = logger;
-
-            _pluginTypeInterfaces = GetPluginsTypeInterface();
-            _pluginsSettings = GetPluginsFromAssemblies();
         }
 
         #endregion
 
         #region Public methods
 
+        /// <summary>
+        /// Load plugins settings
+        /// </summary>
+        private void Initialize()
+        {
+            if (_pluginsSettings != null)
+                return;
+
+            _pluginsSettings = GetPluginsFromAssemblies();
+        }
+
+        /// <summary>
+        /// Get plugin settings
+        /// </summary>
+        /// <typeparam name="T">Plugin type</typeparam>
+        /// <param name="name">Plugin name</param>
+        /// <returns>Returns plugin settings</returns>
         public PluginSettings GetPluginSettings<T>(string name)
         {
             return GetPluginSettings(typeof(T), name);
@@ -62,6 +81,9 @@ namespace FileArchiver.Plugins
         /// <returns>Returns plugin settings</returns>
         public PluginSettings GetPluginSettings(Type type, string name)
         {
+            // Initialize plugins settings
+            Initialize();
+
             if (!_pluginsSettings.ContainsKey(type))
                 throw new PluginException($"Plugins of type {type} doesn't exists.");
 
@@ -75,19 +97,6 @@ namespace FileArchiver.Plugins
         #endregion
 
         #region Private methods
-
-        /// <summary>
-        /// Get all plugins type and the relative interface type
-        /// </summary>
-        /// <returns></returns>
-        private List<Type> GetPluginsTypeInterface()
-        {
-            return new List<Type>
-            {
-                typeof(IArchive),
-                typeof(IStorage)
-            };
-        }
 
         /// <summary>
         /// Get plugins from assemblies in plugins folder
@@ -111,9 +120,6 @@ namespace FileArchiver.Plugins
             // For each .dll file found...
             foreach (var assemblyFullFileName in Directory.EnumerateFiles(PluginsFolderFullName, "*.dll"))
             {
-                var assemblyFileName = new FileInfo(assemblyFullFileName).Name;
-
-                _logger.Debug($"Loading plugins from {assemblyFileName} file...");
                 LoadPluginsFromAssembly(assemblyFullFileName, pluginsSettings);
             }
 
@@ -127,6 +133,8 @@ namespace FileArchiver.Plugins
         /// <param name="pluginsSettings">Plugins settings dictionary to which add plugins settings</param>
         private void LoadPluginsFromAssembly(string assemblyFullFileName, Dictionary<Type, Dictionary<string, PluginSettings>> pluginsSettings)
         {
+            _logger.Debug($"Loading plugins from {new FileInfo(assemblyFullFileName).Name} file...");
+
             // Load the assembly and get exported types
             var assembly = Assembly.LoadFrom(assemblyFullFileName);
             var exportedTypes = assembly.GetExportedTypes();
@@ -186,8 +194,7 @@ namespace FileArchiver.Plugins
         /// <returns>Return true if the plugin can be used. Otherwise returns false</returns>
         private bool PluginTypeFilter(Type pluginType, Type pluginInterfaceType)
         {
-            return !pluginType.IsAbstract &&
-                !pluginType.IsInterface &&
+            return !pluginType.IsAbstract && !pluginType.IsInterface &&
                 pluginInterfaceType.IsAssignableFrom(pluginType);
         }
 

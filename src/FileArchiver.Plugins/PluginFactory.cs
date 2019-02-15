@@ -4,7 +4,6 @@ using Microsoft.Extensions.Configuration;
 using Serilog;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Reflection;
 
@@ -26,7 +25,7 @@ namespace FileArchiver.Plugins
         #region Constructor
 
         /// <summary>
-        /// Cnstructor
+        /// Constructor
         /// </summary>
         /// <param name="baseFolder">Base application folder</param>
         /// <param name="pluginsFolder">Plugin folder</param>

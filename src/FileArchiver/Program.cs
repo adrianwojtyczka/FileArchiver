@@ -30,6 +30,10 @@ namespace FileArchiver
             }
         }
 
+        /// <summary>
+        /// Load configuration
+        /// </summary>
+        /// <returns></returns>
         private static IConfiguration LoadConfiguration()
         {
             return new ConfigurationBuilder()
