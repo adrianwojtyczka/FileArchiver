@@ -14,14 +14,8 @@
     <ProjectReference Include="..\..\FileArchiver.Plugin\FileArchiver.Plugin.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <None Update="FileArchiver.ZipArchive.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Exec Command="IF $(ConfigurationName) == Debug (&#xD;&#xA;cd $(SolutionDir)&#xD;&#xA;copy /y $(ProjectDir)bin\Debug\netstandard2.0\FileArchiver.ZipArchive.dll src\FileArchiver\bin\Debug\netcoreapp2.1\Plugins&#xD;&#xA;copy /y $(ProjectDir)bin\Debug\netstandard2.0\FileArchiver.ZipArchive.pdb src\FileArchiver\bin\Debug\netcoreapp2.1\Plugins&#xD;&#xA;copy /y $(ProjectDir)bin\Debug\netstandard2.0\FileArchiver.ZipArchive.json src\FileArchiver\bin\Debug\netcoreapp2.1\Plugins&#xD;&#xA;)" />
+    <Exec Command="IF $(ConfigurationName) == Debug (&#xD;&#xA;cd $(SolutionDir)&#xD;&#xA;copy /y $(ProjectDir)bin\Debug\netstandard2.0\FileArchiver.ZipArchive.dll src\FileArchiver\bin\Debug\netcoreapp2.1\Plugins&#xD;&#xA;copy /y $(ProjectDir)bin\Debug\netstandard2.0\FileArchiver.ZipArchive.pdb src\FileArchiver\bin\Debug\netcoreapp2.1\Plugins&#xD;&#xA;)" />
   </Target>
 
 </Project>
