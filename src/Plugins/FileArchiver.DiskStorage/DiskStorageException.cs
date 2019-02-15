@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace FileArchiver.Storage
+namespace FileArchiver.DiskStorage
 {
     public class DiskStorageException : Exception
     {

@@ -13,25 +13,15 @@ namespace FileArchiver
         static void Main()
         {
             // Load configuration
-            var config = new ConfigurationBuilder()
-                .AddJsonFile("FileArchiver.json", false)
-#if DEBUG
-                .AddJsonFile("FileArchiver.Development.json", true)
-#endif
-                .Build();
+            var config = LoadConfiguration();
             
-            // Get and bind FileArchiver config section
-            var configSection = config.GetSection("FileArchiver");
-            var settings = new FileArchiverSettings();
-            configSection.Bind(settings);
-
             // Create logger
             var logger = CreateLogger(config);
 
             try
             {
                 // Create and run engine
-                var engine = new Engine(configSection, AppContext.BaseDirectory, settings.PluginsFolder, logger);
+                var engine = new Engine(config.GetSection("FileArchiver"), logger);
                 engine.Run();
             }
             catch(Exception ex)
@@ -40,12 +30,22 @@ namespace FileArchiver
             }
         }
 
+        private static IConfiguration LoadConfiguration()
+        {
+            return new ConfigurationBuilder()
+                .AddJsonFile("FileArchiver.json", false)
+#if DEBUG
+                .AddJsonFile("FileArchiver.Development.json", true)
+#endif
+                .Build();
+        }
+
         /// <summary>
         /// Create logger from configuration
         /// </summary>
         /// <param name="config">Configuration to appy</param>
         /// <returns>Returns logger created</returns>
-        static ILogger CreateLogger(IConfiguration config)
+        private static ILogger CreateLogger(IConfiguration config)
         {
             return new LoggerConfiguration()
                 .ReadFrom.Configuration(config)

@@ -11,10 +11,12 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.FileExtensions" Version="2.2.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="2.2.0" />
     <PackageReference Include="Serilog" Version="2.8.0" />
+    <PackageReference Include="System.ComponentModel.Composition" Version="4.5.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\FileArchiver.Archive\FileArchiver.Archive.csproj" />
+    <ProjectReference Include="..\FileArchiver.Plugin\FileArchiver.Plugin.csproj" />
     <ProjectReference Include="..\FileArchiver.Storage\FileArchiver.Storage.csproj" />
   </ItemGroup>
 

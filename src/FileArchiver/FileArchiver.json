@@ -13,7 +13,6 @@
     ]
   },
   "FileArchiver": {
-    "PluginsFolder": "Plugins",
     "ArchiveSettings": [
       {
         "Path": "",

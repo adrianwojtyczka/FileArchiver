@@ -1,6 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.Composition;
+using System.ComponentModel.Composition.Hosting;
 using System.IO;
+using System.Linq;
+using System.Reflection;
+using FileArchiver.Archive;
+using FileArchiver.Plugin;
+using FileArchiver.Storage;
 using Microsoft.Extensions.Configuration;
 using Serilog;
 
@@ -8,9 +15,17 @@ namespace FileArchiver.Plugins
 {
     internal class PluginsConfiguration
     {
+        #region Constants
+
+        private const string PluginsFolder = "Plugins";
+
+        #endregion
+
         #region Private members
-        
-        private readonly Dictionary<PluginType, Dictionary<string, PluginSettings>> _pluginsSettings;
+
+        private readonly Dictionary<Type, Dictionary<string, PluginSettings>> _pluginsSettings;
+
+        private readonly List<Type> _pluginTypeInterfaces;
 
         private readonly ILogger _logger;
 
@@ -21,21 +36,23 @@ namespace FileArchiver.Plugins
         /// <summary>
         /// Constructor
         /// </summary>
-        /// <param name="baseFolder">Application base path</param>
-        /// <param name="pluginsFolder">Plugin folder path</param>
         /// <param name="logger">Logger</param>
-        public PluginsConfiguration(string baseFolder, string pluginsFolder, ILogger logger)
+        public PluginsConfiguration(ILogger logger)
         {
-            BaseFolder = baseFolder;
-            PluginsFolder = !string.IsNullOrWhiteSpace(pluginsFolder) ? Path.GetFullPath(pluginsFolder) : null;
             _logger = logger;
 
-            _pluginsSettings = LoadPluginsSettingsFromConfigFiles();
+            _pluginTypeInterfaces = GetPluginsTypeInterface();
+            _pluginsSettings = GetPluginsFromAssemblies();
         }
 
         #endregion
 
         #region Public methods
+
+        public PluginSettings GetPluginSettings<T>(string name)
+        {
+            return GetPluginSettings(typeof(T), name);
+        }
 
         /// <summary>
         /// Get plugin settings
@@ -43,7 +60,7 @@ namespace FileArchiver.Plugins
         /// <param name="type">Plugin type</param>
         /// <param name="name">Plugin name</param>
         /// <returns>Returns plugin settings</returns>
-        public PluginSettings GetPluginSettings(PluginType type, string name)
+        public PluginSettings GetPluginSettings(Type type, string name)
         {
             if (!_pluginsSettings.ContainsKey(type))
                 throw new PluginException($"Plugins of type {type} doesn't exists.");
@@ -60,110 +77,145 @@ namespace FileArchiver.Plugins
         #region Private methods
 
         /// <summary>
-        /// Load plugins settings from config files
+        /// Get all plugins type and the relative interface type
         /// </summary>
-        private Dictionary<PluginType, Dictionary<string, PluginSettings>> LoadPluginsSettingsFromConfigFiles()
+        /// <returns></returns>
+        private List<Type> GetPluginsTypeInterface()
+        {
+            return new List<Type>
+            {
+                typeof(IArchive),
+                typeof(IStorage)
+            };
+        }
+
+        /// <summary>
+        /// Get plugins from assemblies in plugins folder
+        /// </summary>
+        /// <param name="pluginsFolder">Plugins folder</param>
+        /// <returns>Returns plugins settings dictionary</returns>
+        private Dictionary<Type, Dictionary<string, PluginSettings>> GetPluginsFromAssemblies()
         {
             _logger.Debug("Loading plugins...");
 
-            // Initialize plugin settings dictionary
-            var pluginsSettings = new Dictionary<PluginType, Dictionary<string, PluginSettings>>();
+            // Check if the path exists
+            if (!Directory.Exists(PluginsFolderFullName))
+                throw new PluginException($"Plugin folder {PluginsFolderFullName} does not exists or is unreachable.");
 
-            // Add all paths in which search for plugins
-            var searchFolders = new List<string> { BaseFolder };
-            if (!string.IsNullOrWhiteSpace(PluginsFolder))
-                searchFolders.Add(PluginsFolder);
 
-            // For each path to search...
-            foreach (var folder in searchFolders)
+            // Initialize plugins settings dictionary
+            var pluginsSettings = new Dictionary<Type, Dictionary<string, PluginSettings>>();
+            _pluginTypeInterfaces.ForEach(type => pluginsSettings.Add(type, new Dictionary<string, PluginSettings>()));
+
+
+            // For each .dll file found...
+            foreach (var assemblyFullFileName in Directory.EnumerateFiles(PluginsFolderFullName, "*.dll"))
             {
-                _logger.Debug($"Loading plugins from directory {folder}...");
-                if (!Directory.Exists(folder))
-                {
-                    _logger.Warning($"Plugin directory {folder} does not exists or is unreachable.");
-                    continue;
-                }
+                var assemblyFileName = new FileInfo(assemblyFullFileName).Name;
 
-                // For each .json file found...
-                foreach (var configFileName in Directory.EnumerateFiles(folder, "*.json"))
-                {
-                    _logger.Debug($"Found {configFileName} file.");
-
-                    // For each plugin to register...
-                    foreach (var pluginSettings in EnumeratePluginsSettingsConfiguration(configFileName))
-                    {
-                        // Check if plugin settings are valid
-                        if (!IsPluginSettingsValid(pluginSettings))
-                            throw new PluginException($"Plugins settings file {configFileName} is invalid.");
-
-                        _logger.Debug($"Loading {pluginSettings.Type} plugin {pluginSettings.Name}...");
-
-                        // Add or get plugin dictionary
-                        Dictionary<string, PluginSettings> pluginSettingDictionary;
-                        if (pluginsSettings.ContainsKey(pluginSettings.Type))
-                        {
-                            pluginSettingDictionary = pluginsSettings[pluginSettings.Type];
-                        }
-                        else
-                        {
-                            pluginSettingDictionary = new Dictionary<string, PluginSettings>();
-                            pluginsSettings.Add(pluginSettings.Type, pluginSettingDictionary);
-                        }
-
-                        // Check if dictionary doesn't have more plugins with the same name
-                        if (pluginSettingDictionary.ContainsKey(pluginSettings.Name))
-                            throw new PluginException($"Plugin of type {pluginSettings.Type} with name {pluginSettings.Name} was already defined.");
-
-                        // Add plugin to the dictionary
-                        pluginSettingDictionary.Add(pluginSettings.Name, pluginSettings);
-                    }
-                }
+                _logger.Debug($"Loading plugins from {assemblyFileName} file...");
+                LoadPluginsFromAssembly(assemblyFullFileName, pluginsSettings);
             }
-
-            _logger.Debug("Plugins loaded.");
 
             return pluginsSettings;
         }
 
         /// <summary>
-        /// Check if plugin settings are valid
+        /// Load plugins settings from assembly
         /// </summary>
-        /// <param name="pluginSettings">Plugin settings to check</param>
-        /// <returns>Returns true if plugin settings are valid. Otherwise returns false.</returns>
-        private bool IsPluginSettingsValid(PluginSettings pluginSettings)
+        /// <param name="assemblyFullFileName">Assembly file name to load</param>
+        /// <param name="pluginsSettings">Plugins settings dictionary to which add plugins settings</param>
+        private void LoadPluginsFromAssembly(string assemblyFullFileName, Dictionary<Type, Dictionary<string, PluginSettings>> pluginsSettings)
         {
-            return pluginSettings.Type != PluginType.Unknown &&
-                !string.IsNullOrWhiteSpace(pluginSettings.Name) &&
-                !string.IsNullOrWhiteSpace(pluginSettings.AssemblyName) &&
-                !string.IsNullOrWhiteSpace(pluginSettings.ClassName);
+            // Load the assembly and get exported types
+            var assembly = Assembly.LoadFrom(assemblyFullFileName);
+            var exportedTypes = assembly.GetExportedTypes();
+
+            // For each plugin type to load...
+            _pluginTypeInterfaces.ForEach(pluginInterfaceType =>
+            {
+                var pluginsSettingsType = pluginsSettings[pluginInterfaceType];
+
+                // For each eligible plugin type...
+                var pluginTypes = exportedTypes.Where(type => PluginTypeFilter(type, pluginInterfaceType));
+                foreach (var pluginType in pluginTypes)
+                {
+                    // Get settings from type
+                    var pluginSettings = GetPluginSettingsFromType(pluginType);
+                    if (pluginsSettingsType.ContainsKey(pluginSettings.Name))
+                        throw new PluginException($"Plugin with name {pluginSettings.Name} was already defined.");
+
+                    // Add the settings to the plugins settings
+                    pluginsSettingsType.Add(pluginSettings.Name, pluginSettings);
+                }
+            });
         }
 
         /// <summary>
-        /// Enumerate plugins settings present in the configuration file
+        /// Create plugin settings from its type
         /// </summary>
-        /// <param name="configFileName">Configuration file name</param>
-        private IEnumerable<PluginSettings> EnumeratePluginsSettingsConfiguration(string configFileName)
+        /// <param name="pluginType">Plugin type</param>
+        /// <param name="type">Type</param>
+        /// <returns>Returns plugin settings</returns>
+        private static PluginSettings GetPluginSettingsFromType(Type type)
         {
-            var config = new ConfigurationBuilder()
-                    .AddJsonFile(configFileName)
-                    .Build();
+            // Get the PluginAttribute
+            var pluginAttribute = type.GetCustomAttribute<PluginAttribute>();
+            if (pluginAttribute == null)
+                throw new PluginException($"The type {type} doesn't have {nameof(PluginAttribute)} attribute.");
 
-            foreach (var configSection in config.GetSection("Plugins").GetChildren())
+            // Check if the plugin name is defined
+            if (string.IsNullOrWhiteSpace(pluginAttribute.Name))
+                throw new PluginException($"The name of plugin {type} is empty.");
+
+
+            // Create and add the plugin settings
+            return new PluginSettings
             {
-                var pluginSettings = new PluginSettings();
-                configSection.Bind(pluginSettings);
+                Name = pluginAttribute.Name,
+                Type = type,
+                SettingsType = pluginAttribute.SettingsType
+            };
+        }
 
-                yield return pluginSettings;
-            }
+        /// <summary>
+        /// Filter plugin types
+        /// </summary>
+        /// <param name="pluginType">Plugin type</param>
+        /// <param name="pluginInterfaceType">Plugin interface type</param>
+        /// <returns>Return true if the plugin can be used. Otherwise returns false</returns>
+        private bool PluginTypeFilter(Type pluginType, Type pluginInterfaceType)
+        {
+            return !pluginType.IsAbstract &&
+                !pluginType.IsInterface &&
+                pluginInterfaceType.IsAssignableFrom(pluginType);
         }
 
         #endregion
 
         #region Properties
 
-        public string BaseFolder { get; }
+        /// <summary>
+        /// Returns full name for the plugins folder
+        /// </summary>
+        public string PluginsFolderFullName => Path.Combine(AppContext.BaseDirectory, PluginsFolder);
 
-        public string PluginsFolder { get; }
+        #endregion
+
+        #region Assembly resolution events
+
+        /// <summary>
+        /// Resolve plugin assembly
+        /// </summary>
+        /// <returns>Returns plugin assembly, if exists.</returns>
+        private Assembly PluginFactory_AssemblyResolve(object sender, ResolveEventArgs args)
+        {
+            var assemblyFullPathName = Path.Combine(PluginsFolderFullName, new AssemblyName(args.Name).Name);
+            if (!File.Exists(assemblyFullPathName))
+                return null;
+
+            return Assembly.LoadFrom(assemblyFullPathName);
+        }
 
         #endregion
     }

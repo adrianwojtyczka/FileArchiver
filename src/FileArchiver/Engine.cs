@@ -31,12 +31,12 @@ namespace FileArchiver
         /// <param name="baseFolder">Base folder</param>
         /// <param name="pluginFolder">Plugin folder</param>
         /// <param name="firstDayOfWeek">First day of week</param>
-        public Engine(IConfiguration configuration, string baseFolder, string pluginFolder, ILogger logger)
+        public Engine(IConfiguration configuration, ILogger logger)
         {
             _configuration = configuration;
             _logger = logger;
 
-            _pluginFactory = new PluginFactory(baseFolder, pluginFolder, logger);
+            _pluginFactory = new PluginFactory(logger);
         }
 
         #endregion

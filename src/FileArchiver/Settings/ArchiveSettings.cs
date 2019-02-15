@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace FileArchiver.Settings
 {
@@ -27,8 +25,8 @@ namespace FileArchiver.Settings
 
         public bool DeleteArchivedFiles { get; set; }
 
-        public Archive.ArchiveSettings Archive { get; set; }
+        public PluginSettings Archive { get; set; }
 
-        public Storage.StorageSettings Storage { get; set; }
+        public PluginSettings Storage { get; set; }
     }
 }

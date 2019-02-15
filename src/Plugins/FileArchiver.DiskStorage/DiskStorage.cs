@@ -1,4 +1,5 @@
 ﻿using FileArchiver.Generic;
+using FileArchiver.Plugin;
 using FileArchiver.Storage;
 using Serilog;
 using System;
@@ -6,8 +7,9 @@ using System.Collections.Generic;
 using System.Configuration;
 using System.IO;
 
-namespace FileArchiver
+namespace FileArchiver.DiskStorage
 {
+    [Plugin("FileArchiver.DiskStorage", typeof(DiskStorageSettings))]
     public class DiskStorage : IStorage
     {
         #region Constants
