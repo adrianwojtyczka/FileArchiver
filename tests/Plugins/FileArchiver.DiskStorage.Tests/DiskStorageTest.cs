@@ -39,7 +39,7 @@ namespace FileArchiver.DiskStorage.Test
         }
 
         [Fact]
-        public void StoreFile_FileAlreadyExists_ShouldThrowException()
+        public void StoreFile_FileAlreadyExists_ShouldCreateFileWithProgressiveName()
         {
             // Arrange
             var settings = new DiskStorageSettings
@@ -54,23 +54,21 @@ namespace FileArchiver.DiskStorage.Test
             var fileStream = File.Create(settings.FileName);
 
             // Act
-            var exception = Record.Exception(() => diskStorage.Store(fileStream, DateTime.MinValue, DateTime.MinValue));
+            diskStorage.Store(fileStream, DateTime.MinValue, DateTime.MinValue);
 
             // Assert
-            Assert.IsType<DiskStorageException>(exception);
-            Assert.Equal($"File {settings.FileName} already exists.", exception.Message);
-
+            Assert.True(File.Exists("DiskStorageTest_AlreadyExistFileName (1).txt"));
 
             // Cleanup
             fileStream.Dispose();
             File.Delete(settings.FileName);
+            File.Delete("DiskStorageTest_AlreadyExistFileName (1).txt");
         }
 
         [Fact]
         public void StoreFile_MoveFile_MovedFileShouldNotExistsAndSettingFileShouldExists()
         {
             // Arrange
-            
             var settings = new DiskStorageSettings
             {
                 FileName = "DiskStorageTest_MovedFile.txt"
@@ -138,11 +136,13 @@ namespace FileArchiver.DiskStorage.Test
         public void StoreFile_CreateFileWithDateAndTimestampPlaceholders_FileNameShouldMatch()
         {
             // Arrange
+            const string startDatePlaceholder = "{StartDate:yyyyMMdd}";
+            const string endDatePlaceholder = "{EndDate:yyyyMMdd}";
             const string datePlaceHolder = "{date:yyyyMMdd}";
             const string timestampPlaceHolder = "{timestamp:yyyyMMdd}";
             var settings = new DiskStorageSettings
             {
-                FileName = $"DiskStorageTest_NewFile_{datePlaceHolder}_{timestampPlaceHolder}.txt",
+                FileName = $"DiskStorageTest_NewFile_{startDatePlaceholder}_{endDatePlaceholder}_{datePlaceHolder}_{timestampPlaceHolder}.txt",
             };
 
             var logger = new Mock<ILogger>();
@@ -153,10 +153,12 @@ namespace FileArchiver.DiskStorage.Test
             var stream = new MemoryStream();
 
             // Act
-            diskStorage.Store(stream, DateTime.MinValue, DateTime.MinValue);
+            diskStorage.Store(stream, DateTime.Today.AddDays(-2), DateTime.Today.AddDays(-1));
 
             // Assert
             var correctFileName = settings.FileName
+                .Replace(startDatePlaceholder, DateTime.Today.AddDays(-2).ToString("yyyyMMdd"))
+                .Replace(endDatePlaceholder, DateTime.Today.AddDays(-1).ToString("yyyyMMdd"))
                 .Replace(datePlaceHolder, DateTime.Now.ToString("yyyyMMdd"))
                 .Replace(timestampPlaceHolder, DateTime.Now.ToString("yyyyMMdd"));
 

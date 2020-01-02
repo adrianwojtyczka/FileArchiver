@@ -36,7 +36,7 @@ namespace FileArchiver.ZipArchive.Tests
             var zipArchive = new ZipArchive(settings, logger.Object);
 
             // Act
-            using (var zipStream = zipArchive.Archive(new string[] { }))
+            using (var zipStream = zipArchive.Archive(Array.Empty<string>()))
             {
                 // Assert
                 var zip = new System.IO.Compression.ZipArchive(zipStream);

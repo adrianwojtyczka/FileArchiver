@@ -84,6 +84,8 @@ namespace FileArchiver
             DateTime endDateTime;
             bool hasOtherFiles;
 
+            _logger.Information($"Archiving files in {archiveSettings.Path} ...");
+
             do
             {
                 // Get start and end date for archive
@@ -153,7 +155,7 @@ namespace FileArchiver
         /// <returns>Returns collection of files to archive</returns>
         private IEnumerable<string> GetFilesToArchive(DateTime startDateTime, DateTime endDateTime, ArchiveSettings settings)
         {
-            _logger.Debug($"Searching files to archive for period {startDateTime.ToShortDateString()} - {endDateTime.ToShortDateString()} ...");
+            _logger.Information($"Searching files to archive for period {startDateTime.ToShortDateString()} - {endDateTime.ToShortDateString()} ...");
 
             // Get all files to archive
             var fileNames = GetFilteredFileNames(startDateTime, endDateTime, settings);
@@ -279,13 +281,15 @@ namespace FileArchiver
 
                 // Get files older than a month
                 case ArchiveStrategy.Monthly:
-                    endDateTime = new DateTime(dateTime.Year, dateTime.Month - 1, DateTime.DaysInMonth(dateTime.Year, dateTime.Month - 1));
+                    endDateTime = dateTime.AddMonths(-1);
+                    endDateTime = new DateTime(endDateTime.Year, endDateTime.Month, DateTime.DaysInMonth(endDateTime.Year, endDateTime.Month));
                     startDateTime = new DateTime(endDateTime.Year, endDateTime.Month, 1);
                     break;
 
                 // Get files older than a year
                 case ArchiveStrategy.Yearly:
-                    endDateTime = new DateTime(dateTime.Year - 1, 12, 31);
+                    endDateTime = dateTime.AddYears(-1);
+                    endDateTime = new DateTime(endDateTime.Year - 1, 12, 31);
                     startDateTime = new DateTime(endDateTime.Year, 1, 1);
                     break;
 

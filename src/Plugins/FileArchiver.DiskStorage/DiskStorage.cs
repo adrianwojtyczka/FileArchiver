@@ -89,6 +89,11 @@ namespace FileArchiver.DiskStorage
         /// <param name="fileName">File name to assign to the file</param>
         private void WriteFile(Stream stream, string fileName)
         {
+            // Create directory, if not exists
+            var directoryName = Path.GetDirectoryName(fileName);
+            if (!Directory.Exists(directoryName))
+                Directory.CreateDirectory(directoryName);
+
             // If the stream is FileStream...
             if (stream is FileStream)
             {

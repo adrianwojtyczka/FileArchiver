@@ -92,10 +92,15 @@ namespace FileArchiver.Generic.Tests
 
         [Theory]
         [InlineData(Month.January, "2019-01-01", 0)]
-        [InlineData(Month.January, "2019-12-01", 12)]
-        public void GetMonthDifference(Month month, DateTime dateTime, int result)
+        [InlineData(Month.April, "2019-01-01", 3)]
+        [InlineData(Month.June, "2019-12-01", -6)]
+        [InlineData(Month.January, "2019-12-01", -11)]
+        public void GetMonthDifference(Month month, string dateTimeString, int result)
         {
+            var dateTime = DateTime.ParseExact(dateTimeString, "yyyy-MM-dd", null);
             var difference = Utils.GetMonthDifference(month, dateTime);
+
+            Assert.Equal(result, difference);
         }
 
         #endregion
