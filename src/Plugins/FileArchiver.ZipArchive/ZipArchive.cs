@@ -1,12 +1,13 @@
 ﻿using FileArchiver.Archive;
+using FileArchiver.Plugin;
 using Serilog;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
 
-namespace FileArchiver
+namespace FileArchiver.ZipArchive
 {
+    [Plugin("FileArchiver.ZipArchive", typeof(ZipArchiveSettings))]
     public class ZipArchive : IArchive
     {
         private readonly ZipArchiveSettings _settings;
@@ -30,6 +31,9 @@ namespace FileArchiver
         /// <returns>Returns archive stream</returns>
         public Stream Archive(IEnumerable<string> fileNames)
         {
+            if (fileNames == null)
+                throw new ArgumentException($"{nameof(fileNames)} cannot be null");
+
             Stream stream;
 
             if (_settings.UseFile)

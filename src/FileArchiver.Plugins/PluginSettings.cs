@@ -1,24 +1,22 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace FileArchiver.Plugins
 {
-    public enum PluginType
+    internal class PluginSettings
     {
-        Unknown = 0,
-        Archive,
-        Storage
-    }
-
-    public class PluginSettings
-    {
-        public PluginType Type { get; set; }
-
+        /// <summary>
+        /// Plugin name
+        /// </summary>
         public string Name { get; set; }
 
-        public string AssemblyName { get; set; }
+        /// <summary>
+        /// Plugin type
+        /// </summary>
+        public Type Type { get; set; }
 
-        public string ClassName { get; set; }
+        /// <summary>
+        /// Plugin settings type
+        /// </summary>
+        public Type SettingsType { get; set; }
     }
 }

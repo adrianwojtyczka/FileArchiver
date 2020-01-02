@@ -1,4 +1,6 @@
 ﻿using System;
+using System.IO;
+using System.Text.RegularExpressions;
 
 namespace FileArchiver.Generic
 {
@@ -75,7 +77,87 @@ namespace FileArchiver.Generic
         private const int MonthsInYear = 12;
         private const int DaysInWeek = 7;
 
+
+        private const string FileNameSuffix = " ({0})";
+
         #endregion
+
+        #region Placeholders
+
+        /// <summary>
+        /// Delegate for evaluating single placeholder
+        /// </summary>
+        /// <param name="placeholder">Placeholder to evaluate</param>
+        /// <param name="name">Placeholder name</param>
+        /// <param name="format">Placeholder format. Null if the format was not provided</param>
+        /// <returns>Result of the evaluation</returns>
+        public delegate string EvaluatePlaceholder(string placeholder, string name, string format);
+
+        /// <summary>
+        /// Evaluate the string and call the placeholder evaluate function for every placeholder found
+        /// </summary>
+        /// <param name="stringToEvaluate">String to parse</param>
+        /// <param name="placeholderEvaluateFunction">Placeholder evaluate function</param>
+        /// <returns>Return parsed string</returns>
+        public static string EvaluateString(string stringToEvaluate, EvaluatePlaceholder placeholderEvaluateFunction)
+        {
+            if (placeholderEvaluateFunction == null)
+                throw new ArgumentException($"{nameof(placeholderEvaluateFunction)} cannot be null.");
+
+            // Get all defined parameters
+            const string placeholderRegexPattern = "({[a-zA-Z0-9]+(:[^}]*)?})";
+            var matches = Regex.Matches(stringToEvaluate, placeholderRegexPattern);
+
+            // For each parameter found...
+            foreach (Match parameter in matches)
+            {
+                // Split the placeholder
+                var nameFormat = parameter.Value
+                    .Trim('{', '}')
+                    .Split(':');
+
+                // Retrieve the name and format
+                string name = nameFormat[0];
+                string format = nameFormat.Length >= 2 ? nameFormat[1] : null;
+
+                // Evaluate placeholder and replace it with the evaluated value
+                stringToEvaluate = stringToEvaluate.Replace(parameter.Value, placeholderEvaluateFunction(parameter.Value, name, format));
+            }
+
+            // Return evaluated string
+            return stringToEvaluate;
+        }
+
+        #endregion
+
+        /// <summary>
+        /// Get first non-existing file name
+        /// </summary>
+        /// <param name="fileName">File name</param>
+        /// <returns>first non-existing file name</returns>
+        public static string GetFirstNonExistingFileName(string fileName)
+        {
+            if (!File.Exists(fileName))
+                return fileName;
+
+
+            // Get file info and file name without extension
+            var fileInfo = new FileInfo(fileName);
+            string fileNameWithoutExtension = fileInfo.Name.Replace(fileInfo.Extension, "");
+
+            string newFileName;
+            int fileNameCount = 1;
+            do
+            {
+                // Generate new file name
+                newFileName = fileNameWithoutExtension + string.Format(FileNameSuffix, fileNameCount++) + fileInfo.Extension;
+                newFileName = Path.Combine(fileInfo.DirectoryName, newFileName);
+
+            } while (File.Exists(newFileName));
+
+            // Return file name that doesn't exists yet
+            return newFileName;
+        }
 
         #region DateTime methods
 
@@ -411,7 +493,7 @@ namespace FileArchiver.Generic
 
         private static (DateTimeOperation, int) GetDateTimeOperation(string parameter, DateTimeScope scope, DayOfWeek firstDayOfWeek, DateTime referenceDate)
         {
-            if (string.IsNullOrEmpty(parameter))
+            if (string.IsNullOrWhiteSpace(parameter))
                 return (DateTimeOperation.None, 0);
 
             if (parameter[0] == '+' || parameter[0] == '-')

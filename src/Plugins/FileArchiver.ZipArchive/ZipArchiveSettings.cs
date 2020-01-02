@@ -1,12 +1,9 @@
-﻿using FileArchiver.Archive;
-using System;
-using System.Collections.Generic;
+﻿using System;
 using System.IO.Compression;
-using System.Text;
 
-namespace FileArchiver
+namespace FileArchiver.ZipArchive
 {
-    public class ZipArchiveSettings : ArchiveSettings
+    public class ZipArchiveSettings
     {
         public CompressionLevel CompressionLevel { get; set; }
 

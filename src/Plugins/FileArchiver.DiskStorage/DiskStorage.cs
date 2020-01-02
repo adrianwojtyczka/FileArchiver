@@ -1,16 +1,28 @@
 ﻿using FileArchiver.Generic;
+using FileArchiver.Plugin;
 using FileArchiver.Storage;
 using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.IO;
-using System.Text.RegularExpressions;
 
-namespace FileArchiver
+namespace FileArchiver.DiskStorage
 {
+    [Plugin("FileArchiver.DiskStorage", typeof(DiskStorageSettings))]
     public class DiskStorage : IStorage
     {
+        #region Constants
+
+        private const string DefaultTimestampFormat = "yyyyMMddHHmmss";
+
+        private const string StartDatePlaceholderName = "StartDate";
+        private const string EndDatePlaceholderName = "EndDate";
+        private const string DatePlaceholderName = "Date";
+        private const string TimestampPlaceholderName = "Timestamp";
+
+        #endregion
+
         #region Private members
 
         /// <summary>
@@ -45,17 +57,14 @@ namespace FileArchiver
         /// Store stream on disk
         /// </summary>
         /// <param name="stream">Stream to store</param>
-        public void Store(Stream stream)
+        public void Store(Stream stream, DateTime startDate, DateTime endDate)
         {
             // Check settings
             CheckSettings();
 
             // Parse file name
-            var fileName = ParseFileName(_settings.FileName, _settings.DateParameters);
-
-            // Check if file doesn't exists
-            if (File.Exists(fileName))
-                throw new DiskStorageException($"File {fileName} already exists.");
+            var fileName = ParseFileName(_settings.FileName, startDate, endDate, _settings.DateParameters);
+            fileName = Utils.GetFirstNonExistingFileName(fileName);
 
             // Write file to disk and check if it exists
             WriteFile(stream, fileName);
@@ -69,7 +78,7 @@ namespace FileArchiver
         private void CheckSettings()
         {
             // Check if the file name is not empty
-            if (string.IsNullOrEmpty(_settings.FileName))
+            if (string.IsNullOrWhiteSpace(_settings.FileName))
                 throw new ConfigurationErrorsException($"The setting {nameof(_settings.FileName)} is not defined.");
         }
 
@@ -80,6 +89,11 @@ namespace FileArchiver
         /// <param name="fileName">File name to assign to the file</param>
         private void WriteFile(Stream stream, string fileName)
         {
+            // Create directory, if not exists
+            var directoryName = Path.GetDirectoryName(fileName);
+            if (!Directory.Exists(directoryName))
+                Directory.CreateDirectory(directoryName);
+
             // If the stream is FileStream...
             if (stream is FileStream)
             {
@@ -111,56 +125,41 @@ namespace FileArchiver
         /// <param name="fileName">File name to parse</param>
         /// <param name="dateParameters">Optional date parameters to apply</param>
         /// <returns>Return parsed file name</returns>
-        private string ParseFileName(string fileName, List<DateTimeParameters> dateParameters)
+        private string ParseFileName(string fileName, DateTime startDate, DateTime endDate, List<DateTimeParameters> dateParameters)
         {
             int dateParametersCount = 0;
 
-            // Get all defined parameters
-            const string placeholderRegexPattern = "({[a-zA-Z0-9]+(:[^}]*)?})";
-            var matches = Regex.Matches(fileName, placeholderRegexPattern);
-
-            // For each parameter found...
-            foreach (Match parameter in matches)
+            // Get formatted value for the current placeholder
+            return Utils.EvaluateString(fileName, (placeholder, name, format) =>
             {
-                // Split the placeholder
-                var nameFormat = parameter.Value
-                    .Trim('{', '}')
-                    .Split(':');
+                // StartDate placeholder
+                if (name.Equals(StartDatePlaceholderName, StringComparison.OrdinalIgnoreCase))
+                    return startDate.ToString(format);
 
-                // Retrieve the name and format
-                string name = nameFormat[0].Trim();
-                string format = nameFormat.Length >= 2 ? nameFormat[1].Trim() : null;
+                // EndDate placeholder
+                if (name.Equals(EndDatePlaceholderName, StringComparison.OrdinalIgnoreCase))
+                    return endDate.ToString(format);
 
-                // Get formatted value for the current placeholder
-                string value;
-                switch (name.ToLower())
+                // Date placeholder
+                if (name.Equals(DatePlaceholderName, StringComparison.OrdinalIgnoreCase))
                 {
-                    case "date":
-                        var dateTime = DateTime.Now;
-                        if (dateParameters != null && dateParametersCount < dateParameters.Count)
-                        {
-                            dateTime = Utils.CalculateDateTime(dateTime, _settings.DateParameters[dateParametersCount]);
-                            dateParametersCount++;
-                        }
-                        
-                        value = dateTime.ToString(format);
-                        break;
+                    var dateTime = DateTime.Now;
+                    if (dateParameters != null && dateParametersCount < dateParameters.Count)
+                    {
+                        dateTime = Utils.CalculateDateTime(dateTime, _settings.DateParameters[dateParametersCount]);
+                        dateParametersCount++;
+                    }
 
-                    case "timestamp":
-                        value = DateTime.Now.ToString(format);
-                        break;
-
-                    default:
-                        value = string.Empty;
-                        break;
+                    return dateTime.ToString(format);
                 }
 
-                // Replace placeholder
-                fileName = fileName.Replace(parameter.Value, value);
-            }
+                // Timestamp placeholder
+                if (name.Equals(TimestampPlaceholderName, StringComparison.OrdinalIgnoreCase))
+                    return DateTime.Now.ToString(format ?? DefaultTimestampFormat);
 
-            // Return parsed file name
-            return fileName;
+                // Default (no placeholder)
+                return string.Empty;
+            });
         }
 
         #endregion

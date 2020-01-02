@@ -4,8 +4,8 @@ using System.Text;
 
 namespace FileArchiver.Settings
 {
-    public class FileArchiverSettings
+    public class PluginSettings
     {
-        public string PluginsFolder { get; set; }
+        public string Name { get; set; }
     }
 }

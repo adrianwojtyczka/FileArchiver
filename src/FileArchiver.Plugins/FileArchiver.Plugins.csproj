@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <Configurations>Debug;Release;Test</Configurations>
   </PropertyGroup>
 
   <ItemGroup>
@@ -14,6 +15,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\FileArchiver.Archive\FileArchiver.Archive.csproj" />
+    <ProjectReference Include="..\FileArchiver.Plugin\FileArchiver.Plugin.csproj" />
     <ProjectReference Include="..\FileArchiver.Storage\FileArchiver.Storage.csproj" />
   </ItemGroup>
 

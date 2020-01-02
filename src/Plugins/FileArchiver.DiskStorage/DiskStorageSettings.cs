@@ -1,12 +1,10 @@
 ﻿using FileArchiver.Generic;
-using FileArchiver.Storage;
 using System;
 using System.Collections.Generic;
-using System.Text;
 
-namespace FileArchiver
+namespace FileArchiver.DiskStorage
 {
-    public class DiskStorageSettings : StorageSettings
+    public class DiskStorageSettings
     {
         public string FileName { get; set; }
 

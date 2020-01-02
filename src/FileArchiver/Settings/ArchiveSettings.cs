@@ -1,12 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using FileArchiver.Generic;
+using System;
+using System.Text.RegularExpressions;
 
 namespace FileArchiver.Settings
 {
     public enum ArchiveStrategy
     {
-        Unknown,
+        Unknown = 0,
         Daily,
         Weekly,
         Monthly,
@@ -15,11 +15,15 @@ namespace FileArchiver.Settings
 
     public class ArchiveSettings
     {
+        private Regex _fileRegEx;
+
         public string Path { get; set; }
 
         public ArchiveStrategy Strategy { get; set; }
 
         public DayOfWeek FirstDayOfWeek { get; set; }
+
+        public DateTimeParameters RetentionDateParameters { get; set; }
 
         public string FilePattern { get; set; }
 
@@ -27,8 +31,22 @@ namespace FileArchiver.Settings
 
         public bool DeleteArchivedFiles { get; set; }
 
-        public Archive.ArchiveSettings Archive { get; set; }
+        public PluginSettings Archive { get; set; }
 
-        public Storage.StorageSettings Storage { get; set; }
+        public PluginSettings Storage { get; set; }
+
+        /// <summary>
+        /// Return compiled file regular expression
+        /// </summary>
+        public Regex FileRegEx
+        {
+            get
+            {
+                if (_fileRegEx == null && !string.IsNullOrWhiteSpace(FileRegExPattern))
+                    _fileRegEx = new Regex(FileRegExPattern, RegexOptions.Compiled);
+
+                return _fileRegEx;
+            }
+        }
     }
 }
