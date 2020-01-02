@@ -38,9 +38,9 @@ namespace FileArchiver
         {
             return new ConfigurationBuilder()
                 .AddJsonFile("FileArchiver.json", false)
-#if DEBUG
                 .AddJsonFile("FileArchiver.Development.json", true)
-#endif
+                .AddJsonFile("FileArchiver.Staging.json", true)
+                .AddJsonFile("FileArchiver.Production.json", true)
                 .Build();
         }
 

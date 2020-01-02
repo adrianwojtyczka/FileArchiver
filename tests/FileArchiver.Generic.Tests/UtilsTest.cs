@@ -1,5 +1,6 @@
 using System;
 using Xunit;
+using static FileArchiver.Generic.Utils;
 
 namespace FileArchiver.Generic.Tests
 {
@@ -75,7 +76,7 @@ namespace FileArchiver.Generic.Tests
 
         private string PlaceholderEvaluateFunction(string placeholder, string name, string format)
         {
-            switch(name)
+            switch (name)
             {
                 case "date":
                     return DateTime.Today.ToString(format);
@@ -83,6 +84,18 @@ namespace FileArchiver.Generic.Tests
                 default:
                     return string.Empty;
             }
+        }
+
+        #endregion
+
+        #region Date time functions
+
+        [Theory]
+        [InlineData(Month.January, "2019-01-01", 0)]
+        [InlineData(Month.January, "2019-12-01", 12)]
+        public void GetMonthDifference(Month month, DateTime dateTime, int result)
+        {
+            var difference = Utils.GetMonthDifference(month, dateTime);
         }
 
         #endregion

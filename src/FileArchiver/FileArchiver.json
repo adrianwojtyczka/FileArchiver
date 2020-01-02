@@ -18,7 +18,7 @@
         "Path": "",
         "FilePattern": "",
         "Strategy": "",
-        "FirstDayOfWeek": "",
+        "RetentionDateParameters": null,
         "Archive": {
           "Name": ""
         },

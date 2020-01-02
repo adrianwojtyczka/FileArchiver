@@ -14,4 +14,10 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="2.4.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\FileArchiver.Archive\FileArchiver.Archive.csproj" />
+    <ProjectReference Include="..\..\src\FileArchiver.Plugin\FileArchiver.Plugin.csproj" />
+    <ProjectReference Include="..\..\src\FileArchiver.Storage\FileArchiver.Storage.csproj" />
+  </ItemGroup>
+
 </Project>

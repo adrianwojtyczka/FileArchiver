@@ -16,6 +16,11 @@ namespace FileArchiver.DiskStorage
 
         private const string DefaultTimestampFormat = "yyyyMMddHHmmss";
 
+        private const string StartDatePlaceholderName = "StartDate";
+        private const string EndDatePlaceholderName = "EndDate";
+        private const string DatePlaceholderName = "Date";
+        private const string TimestampPlaceholderName = "Timestamp";
+
         #endregion
 
         #region Private members
@@ -52,17 +57,14 @@ namespace FileArchiver.DiskStorage
         /// Store stream on disk
         /// </summary>
         /// <param name="stream">Stream to store</param>
-        public void Store(Stream stream)
+        public void Store(Stream stream, DateTime startDate, DateTime endDate)
         {
             // Check settings
             CheckSettings();
 
             // Parse file name
-            var fileName = ParseFileName(_settings.FileName, _settings.DateParameters);
-
-            // Check if file doesn't exists
-            if (File.Exists(fileName))
-                throw new DiskStorageException($"File {fileName} already exists.");
+            var fileName = ParseFileName(_settings.FileName, startDate, endDate, _settings.DateParameters);
+            fileName = Utils.GetFirstNonExistingFileName(fileName);
 
             // Write file to disk and check if it exists
             WriteFile(stream, fileName);
@@ -118,31 +120,40 @@ namespace FileArchiver.DiskStorage
         /// <param name="fileName">File name to parse</param>
         /// <param name="dateParameters">Optional date parameters to apply</param>
         /// <returns>Return parsed file name</returns>
-        private string ParseFileName(string fileName, List<DateTimeParameters> dateParameters)
+        private string ParseFileName(string fileName, DateTime startDate, DateTime endDate, List<DateTimeParameters> dateParameters)
         {
             int dateParametersCount = 0;
 
             // Get formatted value for the current placeholder
             return Utils.EvaluateString(fileName, (placeholder, name, format) =>
             {
-                switch (name.ToLower())
+                // StartDate placeholder
+                if (name.Equals(StartDatePlaceholderName, StringComparison.OrdinalIgnoreCase))
+                    return startDate.ToString(format);
+
+                // EndDate placeholder
+                if (name.Equals(EndDatePlaceholderName, StringComparison.OrdinalIgnoreCase))
+                    return endDate.ToString(format);
+
+                // Date placeholder
+                if (name.Equals(DatePlaceholderName, StringComparison.OrdinalIgnoreCase))
                 {
-                    case "date":
-                        var dateTime = DateTime.Now;
-                        if (dateParameters != null && dateParametersCount < dateParameters.Count)
-                        {
-                            dateTime = Utils.CalculateDateTime(dateTime, _settings.DateParameters[dateParametersCount]);
-                            dateParametersCount++;
-                        }
+                    var dateTime = DateTime.Now;
+                    if (dateParameters != null && dateParametersCount < dateParameters.Count)
+                    {
+                        dateTime = Utils.CalculateDateTime(dateTime, _settings.DateParameters[dateParametersCount]);
+                        dateParametersCount++;
+                    }
 
-                        return dateTime.ToString(format);
-
-                    case "timestamp":
-                        return DateTime.Now.ToString(format ?? DefaultTimestampFormat);
-
-                    default:
-                        return string.Empty;
+                    return dateTime.ToString(format);
                 }
+
+                // Timestamp placeholder
+                if (name.Equals(TimestampPlaceholderName, StringComparison.OrdinalIgnoreCase))
+                    return DateTime.Now.ToString(format ?? DefaultTimestampFormat);
+
+                // Default (no placeholder)
+                return string.Empty;
             });
         }
 

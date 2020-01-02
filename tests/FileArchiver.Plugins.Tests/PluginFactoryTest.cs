@@ -3,7 +3,7 @@ using Xunit;
 
 namespace FileArchiver.Plugins.Tests
 {
-    public class UnitTest1
+    public class PluginFactoryTest
     {
         [Fact]
         public void Test1()

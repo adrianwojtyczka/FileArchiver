@@ -31,7 +31,7 @@ namespace FileArchiver.DiskStorage.Test
             var diskStorage = new DiskStorage(settings, logger.Object);
 
             // Act
-            var exception = Record.Exception(() => diskStorage.Store(null));
+            var exception = Record.Exception(() => diskStorage.Store(null, DateTime.MinValue, DateTime.MinValue));
 
             // Assert
             Assert.IsType<ConfigurationErrorsException>(exception);
@@ -54,7 +54,7 @@ namespace FileArchiver.DiskStorage.Test
             var fileStream = File.Create(settings.FileName);
 
             // Act
-            var exception = Record.Exception(() => diskStorage.Store(fileStream));
+            var exception = Record.Exception(() => diskStorage.Store(fileStream, DateTime.MinValue, DateTime.MinValue));
 
             // Assert
             Assert.IsType<DiskStorageException>(exception);
@@ -90,7 +90,7 @@ namespace FileArchiver.DiskStorage.Test
             fileStream.Seek(0, SeekOrigin.Begin);
 
             // Act
-            diskStorage.Store(fileStream);
+            diskStorage.Store(fileStream, DateTime.MinValue, DateTime.MinValue);
 
             // Assert
             Assert.False(File.Exists(fileToMoveFileName));
@@ -123,7 +123,7 @@ namespace FileArchiver.DiskStorage.Test
             stream.Seek(0, SeekOrigin.Begin);
 
             // Act
-            diskStorage.Store(stream);
+            diskStorage.Store(stream, DateTime.MinValue, DateTime.MinValue);
 
             // Assert
             Assert.True(File.Exists(settings.FileName));
@@ -153,7 +153,7 @@ namespace FileArchiver.DiskStorage.Test
             var stream = new MemoryStream();
 
             // Act
-            diskStorage.Store(stream);
+            diskStorage.Store(stream, DateTime.MinValue, DateTime.MinValue);
 
             // Assert
             var correctFileName = settings.FileName

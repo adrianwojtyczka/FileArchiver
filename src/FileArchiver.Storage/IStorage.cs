@@ -11,6 +11,6 @@ namespace FileArchiver.Storage
         /// Store stream
         /// </summary>
         /// <param name="stream">Stream to store</param>
-        void Store(Stream stream);
+        void Store(Stream stream, DateTime startDate, DateTime endDate);
     }
 }

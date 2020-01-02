@@ -191,12 +191,12 @@ namespace FileArchiver.Plugins
         private object CreateSettingsObject(Type settingsType, IConfiguration configuration)
         {
             // Create instance of plugin settings
-            var pluginCtorParameterTypeCtor = settingsType.GetConstructor(new Type[] { });
+            var pluginCtorParameterTypeCtor = settingsType.GetConstructor(Array.Empty<Type>());
             if (pluginCtorParameterTypeCtor == null)
                 throw new PluginException($"{settingsType} must have a default constructor.");
 
             // Create and bind settings
-            var settings = pluginCtorParameterTypeCtor.Invoke(new object[] { });
+            var settings = pluginCtorParameterTypeCtor.Invoke(Array.Empty<object>());
             configuration.Bind(settings);
 
             return settings;

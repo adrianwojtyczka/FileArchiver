@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Text.RegularExpressions;
 
 namespace FileArchiver.Generic
@@ -76,6 +77,9 @@ namespace FileArchiver.Generic
         private const int MonthsInYear = 12;
         private const int DaysInWeek = 7;
 
+
+        private const string FileNameSuffix = " ({0})";
+
         #endregion
 
         #region Placeholders
@@ -125,6 +129,35 @@ namespace FileArchiver.Generic
         }
 
         #endregion
+
+        /// <summary>
+        /// Get first non-existing file name
+        /// </summary>
+        /// <param name="fileName">File name</param>
+        /// <returns>first non-existing file name</returns>
+        public static string GetFirstNonExistingFileName(string fileName)
+        {
+            if (!File.Exists(fileName))
+                return fileName;
+
+
+            // Get file info and file name without extension
+            var fileInfo = new FileInfo(fileName);
+            string fileNameWithoutExtension = fileInfo.Name.Replace(fileInfo.Extension, "");
+
+            string newFileName;
+            int fileNameCount = 1;
+            do
+            {
+                // Generate new file name
+                newFileName = fileNameWithoutExtension + string.Format(FileNameSuffix, fileNameCount++) + fileInfo.Extension;
+                newFileName = Path.Combine(fileInfo.DirectoryName, newFileName);
+
+            } while (File.Exists(newFileName));
+
+            // Return file name that doesn't exists yet
+            return newFileName;
+        }
 
         #region DateTime methods
 

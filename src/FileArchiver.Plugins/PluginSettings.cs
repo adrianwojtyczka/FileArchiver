@@ -2,7 +2,7 @@
 
 namespace FileArchiver.Plugins
 {
-    public class PluginSettings
+    internal class PluginSettings
     {
         /// <summary>
         /// Plugin name

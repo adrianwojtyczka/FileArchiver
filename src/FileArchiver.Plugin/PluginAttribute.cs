@@ -3,7 +3,7 @@
 namespace FileArchiver.Plugin
 {
     [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = true)]
-    public class PluginAttribute : Attribute
+    public sealed class PluginAttribute : Attribute
     {
         public PluginAttribute(string name, Type settingsType = null)
         {

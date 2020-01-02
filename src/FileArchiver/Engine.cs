@@ -14,6 +14,13 @@ namespace FileArchiver
 {
     public class Engine
     {
+        #region Constants
+
+        private const string Last = "Last";
+        private const string Previous = "Previous";
+
+        #endregion
+
         #region Private members
 
         private readonly IConfiguration _configuration;
@@ -59,20 +66,8 @@ namespace FileArchiver
                     // Check settings
                     CheckSettings(archiveSettings);
 
-
-                    // Get files to archive
-                    var fileNames = GetFilesToArchive(archiveSettings);
-                    if (!fileNames.Any())
-                        continue;
-
-
                     // Archive and store files
-                    var archiveStream = ArchiveFiles(archiveSettings.Archive.Name, archiveSection.GetSection("Archive"), fileNames);
-                    StoreArchive(archiveSettings.Storage.Name, archiveSection.GetSection("Storage"), archiveStream);
-
-                    // Delete files, if needed
-                    if (archiveSettings.DeleteArchivedFiles)
-                        DeleteArchivedFiles(fileNames);
+                    ArchiveAndStoreFiles(archiveSection, archiveSettings);
                 }
                 catch (Exception ex)
                 {
@@ -81,6 +76,44 @@ namespace FileArchiver
             }
 
             _logger.Information("End archiving files.");
+        }
+
+        private void ArchiveAndStoreFiles(IConfigurationSection archiveSection, ArchiveSettings archiveSettings)
+        {
+            DateTime startDateTime = GetInitialDate(archiveSettings.RetentionDateParameters);
+            DateTime endDateTime;
+            bool hasOtherFiles;
+
+            do
+            {
+                // Get start and end date for archive
+                (startDateTime, endDateTime) = GetNextFileDate(startDateTime, archiveSettings.Strategy, archiveSettings.FirstDayOfWeek);
+
+                // Get files to archive
+                var fileNames = GetFilesToArchive(startDateTime, endDateTime, archiveSettings);
+                if (fileNames.Any())
+                {
+                    try
+                    {
+                        // Archive and store files
+                        var archiveStream = ArchiveFiles(archiveSettings.Archive.Name, archiveSection.GetSection("Archive"), fileNames);
+                        StoreArchive(archiveSettings.Storage.Name, archiveSection.GetSection("Storage"), archiveStream, startDateTime, endDateTime);
+
+                        // Delete files, if needed
+                        if (archiveSettings.DeleteArchivedFiles)
+                            DeleteArchivedFiles(fileNames);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Error(ex, ex.Message);
+                    }
+
+                    hasOtherFiles = true;
+                }
+                else
+                    hasOtherFiles = HasOtherFiles(startDateTime.AddMilliseconds(-1), archiveSettings);
+
+            } while (hasOtherFiles);
         }
 
         /// <summary>
@@ -118,29 +151,43 @@ namespace FileArchiver
         /// </summary>
         /// <param name="settings">Settings</param>
         /// <returns>Returns collection of files to archive</returns>
-        private IEnumerable<string> GetFilesToArchive(ArchiveSettings settings)
+        private IEnumerable<string> GetFilesToArchive(DateTime startDateTime, DateTime endDateTime, ArchiveSettings settings)
         {
-            _logger.Debug("Searching files to archive...");
+            _logger.Debug($"Searching files to archive for period {startDateTime.ToShortDateString()} - {endDateTime.ToShortDateString()} ...");
 
-            // Get all files in provided directory
-            var fileNames = Directory.EnumerateFiles(settings.Path, settings.FilePattern ?? string.Empty);
-
-            // Filter files with RegEx expression
-            if (!string.IsNullOrWhiteSpace(settings.FileRegExPattern))
-            {
-                var fileNameRegEx = new Regex(settings.FileRegExPattern, RegexOptions.Compiled);
-                fileNames = fileNames.Where(fileName => fileNameRegEx.IsMatch(fileName));
-            }
-
-            // Filter files by creation date
-            var getMaxFileDate = GetMaxFileDate(settings.Strategy, settings.FirstDayOfWeek);
-            fileNames = fileNames.Where(fileName => new FileInfo(fileName).CreationTime <= getMaxFileDate);
+            // Get all files to archive
+            var fileNames = GetFilteredFileNames(startDateTime, endDateTime, settings);
 
             // Add log
             _logger.Information($"Found {fileNames.Count()} files to archive.");
 
             // Return files list to store
             return fileNames;
+        }
+
+        private IEnumerable<string> GetFilteredFileNames(DateTime startDateTime, DateTime endDateTime, ArchiveSettings settings)
+        {
+            // Get all files in provided directory
+            var fileNames = Directory.EnumerateFiles(settings.Path, settings.FilePattern ?? string.Empty);
+
+            // Filter files with RegEx expression
+            if (settings.FileRegEx != null)
+                fileNames = fileNames.Where(fileName => settings.FileRegEx.IsMatch(fileName));
+
+            // Filter files by creation date
+            return fileNames.Where(fileName =>
+            {
+                var fileInfo = new FileInfo(fileName);
+                return fileInfo.CreationTime >= startDateTime && fileInfo.CreationTime <= endDateTime;
+            });
+        }
+
+        /// <summary>
+        /// Check if there are files older than date time parameter
+        /// </summary>
+        private bool HasOtherFiles(DateTime dateTime, ArchiveSettings settings)
+        {
+            return GetFilteredFileNames(DateTime.MinValue, dateTime, settings).Any();
         }
 
         /// <summary>
@@ -176,13 +223,13 @@ namespace FileArchiver
         /// <param name="storagePluginName">Storage plugin name to use</param>
         /// <param name="storeSection">Store settings section</param>
         /// <param name="archiveStream">Archive stream to store</param>
-        private void StoreArchive(string storagePluginName, IConfiguration storeSection, Stream archiveStream)
+        private void StoreArchive(string storagePluginName, IConfiguration storeSection, Stream archiveStream, DateTime startDate, DateTime endDate)
         {
             _logger.Information($"Storing archive using '{storagePluginName}' storage plugin...");
 
             // Store archive stream
             var storage = _pluginFactory.GetStorage(storagePluginName, storeSection);
-            storage.Store(archiveStream);
+            storage.Store(archiveStream, startDate, endDate);
         }
 
         /// <summary>
@@ -209,10 +256,10 @@ namespace FileArchiver
             }
         }
 
-        private DateTime GetMaxFileDate(ArchiveStrategy archiveStrategy, DayOfWeek firstDayOfWeek)
+        private (DateTime, DateTime) GetNextFileDate(DateTime dateTime, ArchiveStrategy archiveStrategy, DayOfWeek firstDayOfWeek)
         {
-            DateTime dateTime;
-            DateTime today = DateTime.Today;
+            DateTime startDateTime;
+            DateTime endDateTime;
 
             _logger.Debug($"Calculating date using {archiveStrategy} strategy...");
 
@@ -220,35 +267,83 @@ namespace FileArchiver
             {
                 // Get files older than a day
                 case ArchiveStrategy.Daily:
-                    dateTime = today.AddDays(-1);
+                    endDateTime = dateTime.AddDays(-1);
+                    startDateTime = endDateTime;
                     break;
 
                 // Get files older than a week
                 case ArchiveStrategy.Weekly:
-                    dateTime = today.AddDays(Utils.GetPreviousDayOfWeekDifference(firstDayOfWeek, today) - 1);
+                    endDateTime = dateTime.AddDays(Utils.GetPreviousDayOfWeekDifference(firstDayOfWeek, dateTime) - 1);
+                    startDateTime = endDateTime.AddDays(-7);
                     break;
 
                 // Get files older than a month
                 case ArchiveStrategy.Monthly:
-                    dateTime = new DateTime(today.Year, today.Month - 1, DateTime.DaysInMonth(today.Year, today.Month - 1));
+                    endDateTime = new DateTime(dateTime.Year, dateTime.Month - 1, DateTime.DaysInMonth(dateTime.Year, dateTime.Month - 1));
+                    startDateTime = new DateTime(endDateTime.Year, endDateTime.Month, 1);
                     break;
 
                 // Get files older than a year
                 case ArchiveStrategy.Yearly:
-                    dateTime = new DateTime(today.Year - 1, 12, 31);
+                    endDateTime = new DateTime(dateTime.Year - 1, 12, 31);
+                    startDateTime = new DateTime(endDateTime.Year, 1, 1);
                     break;
 
                 default:
-                    throw new Exception($"Archive strategy '{archiveStrategy}' is not a valid value.");
+                    throw new ApplicationException($"Archive strategy '{archiveStrategy}' is not a valid value.");
             }
-            
-            // Set the end of the calculated day
-            dateTime = new DateTime(dateTime.Year, dateTime.Month, dateTime.Day, 23, 59, 59, 999);
 
-            _logger.Debug($"Date calculated: {dateTime.ToString(System.Threading.Thread.CurrentThread.CurrentUICulture.DateTimeFormat)}.");
+            // Set the end of the calculated day
+            startDateTime = new DateTime(startDateTime.Year, startDateTime.Month, startDateTime.Day, 0, 0, 0, 0);
+            endDateTime = new DateTime(endDateTime.Year, endDateTime.Month, endDateTime.Day, 23, 59, 59, 999);
+
+            _logger.Debug($"Date calculated: {startDateTime.ToString(System.Threading.Thread.CurrentThread.CurrentUICulture.DateTimeFormat)} - {endDateTime.ToString(System.Threading.Thread.CurrentThread.CurrentUICulture.DateTimeFormat)}.");
 
             // Return calculated date
+            return (startDateTime, endDateTime);
+        }
+
+        private DateTime GetInitialDate(DateTimeParameters retentionDateTimeParameters)
+        {
+            var dateTime = DateTime.Today;
+            if (retentionDateTimeParameters != null)
+            {
+                dateTime = dateTime.AddYears(GetRetentionDateTimeValueToAdd(retentionDateTimeParameters.Year));
+                dateTime = dateTime.AddMonths(GetRetentionDateTimeValueToAdd(retentionDateTimeParameters.Month));
+                dateTime = dateTime.AddDays(GetRetentionDateTimeValueToAdd(retentionDateTimeParameters.Day));
+
+                dateTime = dateTime.AddHours(GetRetentionDateTimeValueToAdd(retentionDateTimeParameters.Hour));
+                dateTime = dateTime.AddMinutes(GetRetentionDateTimeValueToAdd(retentionDateTimeParameters.Minute));
+                dateTime = dateTime.AddSeconds(GetRetentionDateTimeValueToAdd(retentionDateTimeParameters.Second));
+                dateTime = dateTime.AddMilliseconds(GetRetentionDateTimeValueToAdd(retentionDateTimeParameters.Millisecond));
+            }
+
+            _logger.Debug($"Initial date calculated: {dateTime.ToString(System.Threading.Thread.CurrentThread.CurrentUICulture)}.");
+
             return dateTime;
+        }
+
+        private int GetRetentionDateTimeValueToAdd(string parameter)
+        {
+            // Add nothing if the parameter is empty
+            if (string.IsNullOrEmpty(parameter))
+                return 0;
+
+            // If the parameter is an integer...
+            if (int.TryParse(parameter, out int result))
+            {
+                if (result < 0)
+                    throw new ArgumentException($"Retention date time parameter value cannot be negative.");
+
+                // Subtract this value
+                return -result;
+            }
+
+            // If the parameter is "Last" or "Previous", subtract 1
+            if (parameter.Equals(Last, StringComparison.OrdinalIgnoreCase) || parameter.Equals(Previous, StringComparison.OrdinalIgnoreCase))
+                return -1;
+
+            throw new ArgumentException($"Retention date time parameter '{parameter}' is not supported.");
         }
 
         #endregion
