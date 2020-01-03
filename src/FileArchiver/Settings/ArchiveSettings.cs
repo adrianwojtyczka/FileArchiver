@@ -17,7 +17,20 @@ namespace FileArchiver.Settings
     {
         private Regex _fileRegEx;
 
+
         public string Path { get; set; }
+
+        public string NormalizedPath => Path.Replace(System.IO.Path.AltDirectorySeparatorChar, System.IO.Path.DirectorySeparatorChar).Trim(System.IO.Path.DirectorySeparatorChar);
+
+        public bool IncludeSubfolders { get; set; }
+
+        public string SubfolderPattern { get; set; }
+
+        public bool DeleteEmptySubfolders { get; set; }
+
+        public string FilePattern { get; set; }
+
+        public string FileRegExPattern { get; set; }
 
         public ArchiveStrategy Strategy { get; set; }
 
@@ -25,15 +38,11 @@ namespace FileArchiver.Settings
 
         public DateTimeParameters RetentionDateParameters { get; set; }
 
-        public string FilePattern { get; set; }
-
-        public string FileRegExPattern { get; set; }
-
-        public bool DeleteArchivedFiles { get; set; }
-
         public PluginSettings Archive { get; set; }
 
         public PluginSettings Storage { get; set; }
+
+        public bool DeleteArchivedFiles { get; set; }
 
         /// <summary>
         /// Return compiled file regular expression

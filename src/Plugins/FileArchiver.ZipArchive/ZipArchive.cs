@@ -29,7 +29,7 @@ namespace FileArchiver.ZipArchive
         /// </summary>
         /// <param name="fileNames">Files to archive</param>
         /// <returns>Returns archive stream</returns>
-        public Stream Archive(IEnumerable<string> fileNames)
+        public Stream Archive(IDictionary<string, string> fileNames)
         {
             if (fileNames == null)
                 throw new ArgumentException($"{nameof(fileNames)} cannot be null");
@@ -53,14 +53,11 @@ namespace FileArchiver.ZipArchive
                 // For each file to archive...
                 foreach (var fileName in fileNames)
                 {
-                    // Get file name withou path
-                    string entryName = new FileInfo(fileName).Name;
-
-                    _logger.Information($"Adding file {entryName}.");
+                    _logger.Debug($"Adding file {fileName.Value}.");
 
                     // Create new entry and write file stream to it
-                    var zipEntry = zipArchive.CreateEntry(entryName, _settings.CompressionLevel);
-                    using (var fileStream = File.OpenRead(fileName))
+                    var zipEntry = zipArchive.CreateEntry(fileName.Key, _settings.CompressionLevel);
+                    using (var fileStream = File.OpenRead(fileName.Value))
                     using (var entryStream = zipEntry.Open())
                     {
                         fileStream.CopyTo(entryStream);
