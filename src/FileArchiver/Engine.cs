@@ -98,12 +98,16 @@ namespace FileArchiver
                     try
                     {
                         // Archive and store files
-                        var archiveStream = ArchiveFiles(archiveSettings.Archive.Name, archiveSection.GetSection("Archive"), fileNames);
+                        var archiveStream = ArchiveFiles(archiveSettings.Archive.Name, archiveSection.GetSection("Archive"), GetArchiveFileNames(archiveSettings, fileNames));
                         StoreArchive(archiveSettings.Storage.Name, archiveSection.GetSection("Storage"), archiveStream, startDateTime, endDateTime);
 
                         // Delete files, if needed
                         if (archiveSettings.DeleteArchivedFiles)
                             DeleteArchivedFiles(fileNames);
+
+                        // Delete subfolders, if needed
+                        if (archiveSettings.IncludeSubfolders && archiveSettings.DeleteEmptySubfolders)
+                            DeleteArchivedDirectories(archiveSettings.Path, fileNames);
                     }
                     catch (Exception ex)
                     {
@@ -116,6 +120,15 @@ namespace FileArchiver
                     hasOtherFiles = HasOtherFiles(startDateTime.AddMilliseconds(-1), archiveSettings);
 
             } while (hasOtherFiles);
+        }
+
+        private IDictionary<string, string> GetArchiveFileNames(ArchiveSettings archiveSettings, IEnumerable<string> fileNames)
+        {
+            return fileNames.ToDictionary(
+                fileName => fileName.Replace(archiveSettings.NormalizedPath, "")
+                                    .Trim(Path.DirectorySeparatorChar),
+                fileName => fileName
+                );
         }
 
         /// <summary>
@@ -158,30 +171,43 @@ namespace FileArchiver
             _logger.Information($"Searching files to archive for period {startDateTime.ToShortDateString()} - {endDateTime.ToShortDateString()} ...");
 
             // Get all files to archive
-            var fileNames = GetFilteredFileNames(startDateTime, endDateTime, settings);
+            var fileNames = GetFilteredFileNames(settings.NormalizedPath, startDateTime, endDateTime, settings);
 
             // Add log
             _logger.Information($"Found {fileNames.Count()} files to archive.");
 
             // Return files list to store
-            return fileNames;
+            return fileNames.ToArray();
         }
 
-        private IEnumerable<string> GetFilteredFileNames(DateTime startDateTime, DateTime endDateTime, ArchiveSettings settings)
+        private IEnumerable<string> GetFilteredFileNames(string path, DateTime startDateTime, DateTime endDateTime, ArchiveSettings settings)
         {
             // Get all files in provided directory
-            var fileNames = Directory.EnumerateFiles(settings.Path, settings.FilePattern ?? string.Empty);
+            IEnumerable<string> fileNames = Directory.GetFiles(path, settings.FilePattern ?? string.Empty);
 
             // Filter files with RegEx expression
             if (settings.FileRegEx != null)
                 fileNames = fileNames.Where(fileName => settings.FileRegEx.IsMatch(fileName));
 
             // Filter files by creation date
-            return fileNames.Where(fileName =>
+            fileNames = fileNames.Where(fileName =>
             {
                 var fileInfo = new FileInfo(fileName);
-                return fileInfo.CreationTime >= startDateTime && fileInfo.CreationTime <= endDateTime;
+                return fileInfo.LastWriteTime >= startDateTime && fileInfo.LastWriteTime <= endDateTime;
+                //return fileInfo.CreationTime >= startDateTime && fileInfo.CreationTime <= endDateTime;
             });
+
+            // Search for file in all subfolders
+            if (settings.IncludeSubfolders)
+            {
+                foreach (var directoryName in Directory.EnumerateDirectories(path, settings.SubfolderPattern ?? string.Empty))
+                {
+                    var subdirectoryFileNames = GetFilteredFileNames(directoryName, startDateTime, endDateTime, settings);
+                    fileNames = fileNames.Concat(subdirectoryFileNames);
+                }
+            }
+
+            return fileNames;
         }
 
         /// <summary>
@@ -189,7 +215,7 @@ namespace FileArchiver
         /// </summary>
         private bool HasOtherFiles(DateTime dateTime, ArchiveSettings settings)
         {
-            return GetFilteredFileNames(DateTime.MinValue, dateTime, settings).Any();
+            return GetFilteredFileNames(settings.NormalizedPath, DateTime.MinValue, dateTime, settings).Any();
         }
 
         /// <summary>
@@ -199,7 +225,7 @@ namespace FileArchiver
         /// <param name="archiveSection">Archive settings section</param>
         /// <param name="fileNames">File names to archive</param>
         /// <returns>Returns archive stream</returns>
-        private Stream ArchiveFiles(string archivePluginName, IConfiguration archiveSection, IEnumerable<string> fileNames)
+        private Stream ArchiveFiles(string archivePluginName, IConfiguration archiveSection, IDictionary<string, string> fileNames)
         {
             _logger.Information($"Archiving files using '{archivePluginName}' archive plugin...");
 
@@ -258,6 +284,21 @@ namespace FileArchiver
             }
         }
 
+        private void DeleteArchivedDirectories(string basePath, IEnumerable<string> files)
+        {
+            // Get all children directories
+            var directoryNames = files.Select(file => Path.GetDirectoryName(file)).Distinct();
+            directoryNames = directoryNames.Where(path => !path.Equals(basePath));
+
+            // For each directory...
+            foreach (var directoryName in directoryNames.OrderByDescending(name => name))
+            {
+                // If directory is empty, delete it
+                if (!Directory.EnumerateFileSystemEntries(directoryName).Any())
+                    Directory.Delete(directoryName);
+            }
+        }
+
         private (DateTime, DateTime) GetNextFileDate(DateTime dateTime, ArchiveStrategy archiveStrategy, DayOfWeek firstDayOfWeek)
         {
             DateTime startDateTime;
@@ -276,7 +317,7 @@ namespace FileArchiver
                 // Get files older than a week
                 case ArchiveStrategy.Weekly:
                     endDateTime = dateTime.AddDays(Utils.GetPreviousDayOfWeekDifference(firstDayOfWeek, dateTime) - 1);
-                    startDateTime = endDateTime.AddDays(-7);
+                    startDateTime = endDateTime.AddDays(-6);
                     break;
 
                 // Get files older than a month

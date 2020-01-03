@@ -36,7 +36,7 @@ namespace FileArchiver.ZipArchive.Tests
             var zipArchive = new ZipArchive(settings, logger.Object);
 
             // Act
-            using (var zipStream = zipArchive.Archive(Array.Empty<string>()))
+            using (var zipStream = zipArchive.Archive(new Dictionary<string, string>(0)))
             {
                 // Assert
                 var zip = new System.IO.Compression.ZipArchive(zipStream);
@@ -65,7 +65,7 @@ namespace FileArchiver.ZipArchive.Tests
             var zipArchive = new ZipArchive(settings, logger.Object);
 
             // Act
-            using (var zipStream = zipArchive.Archive(fileList.Values))
+            using (var zipStream = zipArchive.Archive(fileList))
             {
                 // Assert
                 var zip = new System.IO.Compression.ZipArchive(zipStream);
@@ -93,6 +93,10 @@ namespace FileArchiver.ZipArchive.Tests
         {
             const string testFileName = "ZipArchive_TestFile_1.txt";
             string testFullFileName = Path.Combine(DataFolder, testFileName);
+            var filesToArchive = new Dictionary<string, string>
+            {
+                { testFileName, testFullFileName }
+            };
 
             // Arrange
             var settings = new ZipArchiveSettings { UseFile = true };
@@ -100,7 +104,7 @@ namespace FileArchiver.ZipArchive.Tests
             var zipArchive = new ZipArchive(settings, logger.Object);
 
             // Act
-            var zipStream = zipArchive.Archive(new[] { testFullFileName });
+            var zipStream = zipArchive.Archive(filesToArchive);
 
             // Assert
             Assert.IsType<FileStream>(zipStream);

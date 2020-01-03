@@ -10,11 +10,15 @@ namespace FileArchiver.DiskStorage.Test
 {
     public class DiskStorageTest
     {
+        private string _tempPathName;
+
         public DiskStorageTest()
         {
             // Delete all remaining test files
             foreach (var fileName in Directory.EnumerateFiles(".", "DiskStorageTest*.txt"))
                 File.Delete(fileName);
+
+            _tempPathName = Path.GetTempPath();
         }
 
         [Fact]
@@ -44,8 +48,9 @@ namespace FileArchiver.DiskStorage.Test
             // Arrange
             var settings = new DiskStorageSettings
             {
-                FileName = "DiskStorageTest_AlreadyExistFileName.txt"
+                FileName = Path.Combine(_tempPathName, "DiskStorageTest_AlreadyExistFileName.txt")
             };
+            var fileName = Path.Combine(_tempPathName, "DiskStorageTest_AlreadyExistFileName (1).txt");
 
             var logger = new Mock<ILogger>();
 
@@ -57,12 +62,12 @@ namespace FileArchiver.DiskStorage.Test
             diskStorage.Store(fileStream, DateTime.MinValue, DateTime.MinValue);
 
             // Assert
-            Assert.True(File.Exists("DiskStorageTest_AlreadyExistFileName (1).txt"));
+            Assert.True(File.Exists(fileName));
 
             // Cleanup
             fileStream.Dispose();
             File.Delete(settings.FileName);
-            File.Delete("DiskStorageTest_AlreadyExistFileName (1).txt");
+            File.Delete(fileName);
         }
 
         [Fact]
@@ -71,7 +76,7 @@ namespace FileArchiver.DiskStorage.Test
             // Arrange
             var settings = new DiskStorageSettings
             {
-                FileName = "DiskStorageTest_MovedFile.txt"
+                FileName = Path.Combine(_tempPathName, "DiskStorageTest_MovedFile.txt")
             };
 
             var logger = new Mock<ILogger>();
@@ -79,7 +84,7 @@ namespace FileArchiver.DiskStorage.Test
             var diskStorage = new DiskStorage(settings, logger.Object);
 
             // Create file
-            var fileToMoveFileName = "DiskStorageTest_FileToMove.txt";
+            var fileToMoveFileName = Path.Combine(_tempPathName, "DiskStorageTest_FileToMove.txt");
             var fileStream = File.Create(fileToMoveFileName);
 
             // Write string to file
@@ -106,7 +111,7 @@ namespace FileArchiver.DiskStorage.Test
             // Arrange
             var settings = new DiskStorageSettings
             {
-                FileName = "DiskStorageTest_NewFile.txt"
+                FileName = Path.Combine(_tempPathName, "DiskStorageTest_NewFile.txt")
             };
 
             var logger = new Mock<ILogger>();
@@ -142,7 +147,7 @@ namespace FileArchiver.DiskStorage.Test
             const string timestampPlaceHolder = "{timestamp:yyyyMMdd}";
             var settings = new DiskStorageSettings
             {
-                FileName = $"DiskStorageTest_NewFile_{startDatePlaceholder}_{endDatePlaceholder}_{datePlaceHolder}_{timestampPlaceHolder}.txt",
+                FileName = Path.Combine(_tempPathName, $"DiskStorageTest_NewFile_{startDatePlaceholder}_{endDatePlaceholder}_{datePlaceHolder}_{timestampPlaceHolder}.txt")
             };
 
             var logger = new Mock<ILogger>();

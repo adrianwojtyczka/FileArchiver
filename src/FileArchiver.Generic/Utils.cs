@@ -350,7 +350,7 @@ namespace FileArchiver.Generic
         public static int GetPreviousDayOfWeekDifference(DayOfWeek destinationDayOfWeek, DayOfWeek currentDayOfWeek)
         {
             int difference = GetDayOfWeekDifference(destinationDayOfWeek, currentDayOfWeek);
-            if (difference >= 0)
+            if (difference > 0)
                 difference -= DaysInWeek;
 
             return difference;

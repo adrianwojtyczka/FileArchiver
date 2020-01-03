@@ -10,8 +10,8 @@ namespace FileArchiver.Archive
         /// <summary>
         /// Archive files
         /// </summary>
-        /// <param name="fileNames">Files to archive</param>
+        /// <param name="fileNames">Files to archive (key: entry name; value: full file name)</param>
         /// <returns>Returns archive stream</returns>
-        Stream Archive(IEnumerable<string> fileNames);
+        Stream Archive(IDictionary<string, string> fileNames);
     }
 }
